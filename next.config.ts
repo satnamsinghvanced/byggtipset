@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    domains: ['vanced.solutions'],
+    domains: ["https://byggtipset.no"],
     remotePatterns: [
       {
         protocol: "https",
@@ -10,19 +10,13 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
       {
-        protocol: "http",
-        hostname: "localhost",
-        port: "3000",
+        protocol: "https",
+        hostname: "https://byggtipset.no",
         pathname: "/**",
       },
       {
         protocol: "https",
-        hostname: "byggtipset.vercel.app",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "vanced.solutions",
+        hostname: "https://byggtipset.no",
         pathname: "/**",
       },
     ],
