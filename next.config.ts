@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "byggtipset.no",
+        hostname: "api.byggtipset.no",
         pathname: "/**",
       },
     ],

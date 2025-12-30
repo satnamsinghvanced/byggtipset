@@ -26,7 +26,7 @@ const LatestInsightsCard = ({
         </div>
 
         <div className="py-4 flex flex-col flex-grow">
-          {date}
+         <p className="text-[#16192580] mb-[10px] text-[14px]"> {date}</p>
           <h3 className="text-[20px] font-semibold text-dark/90 mb-4 leading-tight line-clamp-3">
             {title}
           </h3>
@@ -35,9 +35,9 @@ const LatestInsightsCard = ({
               <div className={`!bg-transparent !pl-0`}>
                 <p
                   className="text-base font-semibold inline-flex items-center gap-2 group-hover:gap-3 transition-all duration-200"
-                  aria-label={`Read more about ${title}`}
+                  aria-label={`les mer om ${title}`}
                 >
-                  <span className='text-dark'> Read More </span>
+                  <span className='text-dark'> Les mer </span>
                   <span
                     className="text-lg transition-transform duration-200 group-hover:translate-x-1"
                     aria-hidden="true"

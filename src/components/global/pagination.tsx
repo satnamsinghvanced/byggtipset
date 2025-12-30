@@ -77,7 +77,7 @@ const Pagination = ({
 
         {/* Page Numbers */}
         <div className="flex gap-0.5">
-          {getPageNumbers().map((page, index) =>
+          {getPageNumbers()?.map((page, index) =>
             page === "..." ? (
               <span key={`ellipsis-${index}`} className="px-3 py-2">
                 ...
@@ -85,7 +85,8 @@ const Pagination = ({
             ) : (
               <Link
                 key={`${page}-${index}`}
-                href={`?category=${selectedCategorySlug}&page=${page}#article_section`}
+                // 
+                href={`${selectedCategorySlug && `?category=${selectedCategorySlug}`}${selectedCategorySlug ? `&` : `?`}page=${page}#article_section`}
                 aria-label={`Page ${page}`}
                 aria-current={currentPage === page ? "page" : undefined}
                 className={`rounded-full bg-transparent hover:bg-transparent text-[18px] min-w-6.5 h-6.5 flex items-center justify-center ${currentPage === page

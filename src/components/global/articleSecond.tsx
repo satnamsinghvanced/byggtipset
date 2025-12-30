@@ -27,22 +27,22 @@ const ArticleSecond = async ({
         </div>
       ) : (
         <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-12 max-w-7xl mx-auto mb-6" role="list">
-            {articlesData.slice(0, 4).map((item: any) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-12 max-w-7xl mx-auto mb-6" role="list">
+            {articlesData.slice(0, 4)?.map((item: any) => (
               <ArticlesCard
                 key={item.slug}
                 image={item.image ?? ""}
                 date={item.date ?? ""}
-                title={item.title}
+                title={item?.title}
                 href={
-                  item.href || `/articles/${item.categoryId.slug}/${item.slug}`
+                  item.href || `/artikler/${item.categoryId.slug}/${item.slug}`
                 }
                 readMoreText="Les mer"
               />
             ))}
           </div>
           <div className="flex justify-center items-center">
-            <Link href="/articles">
+            <Link href="/artikler">
               <Button className="bg-primary text-background">
                 Se flere artikler
               </Button>

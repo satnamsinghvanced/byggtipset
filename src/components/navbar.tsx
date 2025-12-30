@@ -10,8 +10,8 @@ const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_URL ?? "";
 const Navbar = ({ logo, logoText }: NavbarProps) => {
 
   return (
-    <nav className="bg-navbarbg text-background px-4 lg:px-6 py-6 sticky top-0 !z-[99]">
-      <div className="flex justify-between items-center px-2 md:px-6 lg:px-10">
+    <nav className="bg-navbarbg text-background px-4 lg:px-6 py-6 sticky top-0 !z-[99] h-[82px] flex items-center">
+      <div className="flex justify-between items-center px-2 md:px-6 lg:px-10 w-full">
         <div className="text-xl font-bold overflow-hidden">
           <Link href="/" aria-label="Byggtipset Logo" className="flex gap-1 justify-center items-center">
             {
@@ -27,9 +27,9 @@ const Navbar = ({ logo, logoText }: NavbarProps) => {
               logoText &&
               <Image
                 src={`${imageBaseUrl}${logoText}`}
-                width={77} height={20}
+                width={100} height={20}
                 alt='Byggtipset Logo'
-                className='h-full max-md:max-h-[265px] w-[85px]'
+                className='h-full max-md:max-h-[265px] w-[142px]'
                 loading="lazy" />
             }
             {
@@ -38,8 +38,8 @@ const Navbar = ({ logo, logoText }: NavbarProps) => {
             }
           </Link>
         </div>
-        <div className="hidden md:flex space-x-2 md:space-x-6 lg:space-x-10 items-center">
-          {NAV_LINKS.map((link) => (
+        <div className="hidden md:flex space-x-2 md:space-x-6 lg:space-x-10 items-center !z-20">
+          {NAV_LINKS?.map((link) => (
             <div
               key={link.href}
               className="flex items-center space-x-2 md:space-x-6 lg:space-x-10"

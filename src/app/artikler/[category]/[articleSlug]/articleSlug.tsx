@@ -1,3 +1,4 @@
+import { cleanHtmlContent } from "@/utils/cleanHtml";
 import ArticlesByTags from "@/components/global/articlesByTags";
 import ArticleSecond from "@/components/global/articleSecond";
 import Breadcrumbs from "@/components/global/breadcrumbs";
@@ -6,7 +7,7 @@ import { ArticleProps } from "@/const/types";
 import { getCachedArticleBySlug } from "@/services/page/getCachedArticleBySlug-service";
 import { formatDate } from "@/utils/formatDate";
 import Image from "next/image";
-import { notFound } from 'next/navigation';
+import { notFound } from "next/navigation";
 
 const ArticleSlug = async ({ slugValue }: ArticleProps) => {
   const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_URL ?? "";
@@ -14,7 +15,7 @@ const ArticleSlug = async ({ slugValue }: ArticleProps) => {
   const article = await JSON.parse(JSON.stringify(articleDoc));
 
   if (!article) {
-    notFound()
+    notFound();
   }
 
   return (
@@ -23,11 +24,11 @@ const ArticleSlug = async ({ slugValue }: ArticleProps) => {
         {article?.image && (
           <Image
             src={`${imageBaseUrl}${article?.image}`}
-            width={100}
-            height={100}
+            width={1440}
+            height={720}
             alt={`${article?.title} image`}
             className="w-full rounded-2xl mb-6"
-            loading="lazy" 
+            loading="lazy"
           />
         )}
       </div>
@@ -48,16 +49,18 @@ const ArticleSlug = async ({ slugValue }: ArticleProps) => {
             {article?.image && (
               <Image
                 src={`${imageBaseUrl}${article?.image}`}
-                width={100}
-                height={100}
+                width={1440}
+                height={720}
                 alt={`${article?.title} image`}
                 className="w-full rounded-2xl mb-6"
-                loading="lazy" 
+                loading="lazy"
               />
             )}
           </div>
           <div
-            dangerouslySetInnerHTML={{ __html: article?.description || "" }}
+            dangerouslySetInnerHTML={{
+              __html: cleanHtmlContent(article?.description || ""),
+            }}
             className="article-content"
           ></div>
         </div>
@@ -65,12 +68,11 @@ const ArticleSlug = async ({ slugValue }: ArticleProps) => {
           <GetQuotes />
         </div>
       </div>
-      {
-        article.articleTags ?
-          <ArticlesByTags tags={article.articleTags} slug={article.slug} />
-          :
-          <ArticleSecond />
-      }
+      {article?.articleTags && article?.articleTags ? (
+        <ArticlesByTags tags={article?.articleTags} slug={article?.slug} />
+      ) : (
+        <ArticleSecond />
+      )}
     </>
   );
 };
