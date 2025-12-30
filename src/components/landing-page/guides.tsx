@@ -25,7 +25,7 @@ const Guides = ({ data }: any) => {
               key={loc._id || index}
               city={location.name}
               description={location.excerpt || ''}
-              href={`/eiendomsmegler/${location.slug}`}
+              href={`/prosjekter/${location.slug}`}
               icon={location.icon}
             />
           );
@@ -35,8 +35,8 @@ const Guides = ({ data }: any) => {
       <div className="mt-8">
         <RedirectButton
           className="bg-primary text-background text-[16px] max-sm:w-full !py-[12px] !px-[90px]"
-          text={data.buttonText}
-          redirect={`${data.ctaLink || '/eiendomsmegler'}#region-selector`}
+          text={data?.buttonText}
+          redirect={`${data?.ctaLink || '/prosjekter'}#region-selector`}
         />
       </div>
     </div>

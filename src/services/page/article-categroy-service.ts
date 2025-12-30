@@ -7,7 +7,7 @@ export const getCachedTopArticleCategory = unstable_cache(
         try {
             await connectDB();
 
-            const articleCategory = await ArticleCategory.find().sort({ categoryPosition: 1 }).limit(3);;
+            const articleCategory = await ArticleCategory.find().sort({ categoryPosition: 1 }).limit(6);;
 
             if (!articleCategory) {
                 console.warn('No articleCategory data found in database');

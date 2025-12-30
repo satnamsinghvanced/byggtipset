@@ -81,12 +81,12 @@ body {
     @apply mb-4 text-[14px] lg:text-[16px] text-secondary;
   }
 
-  .eiendomsmegler-content h2 {
+  .prosjekter-content h2 {
     @apply mb-4 text-[24px] lg:text-[48px] text-primary font-semibold lg:leading-16 leading-8;
 
   }
 
-  .eiendomsmegler-content p {
+  .prosjekter-content p {
     @apply mb-4 text-[14px] lg:text-[16px] text-primary;
 
   }

@@ -11,8 +11,8 @@ const Article = async (heading: any) => {
     <>
       <div className="py-8 max-sm:pb-[42px] sm:py-12 lg:py-20 bg-background text-center px-4">
         <Heading heading={heading.heading} />
-        <div className="flex flex-col md:flex-row justify-center gap-6 mt-10 max-w-7xl mx-auto">
-          {articleCaegoryData && articleCaegoryData?.slice(0, 3)?.map(({ title, description, slug }: any, index: number) => (
+        <div className="grid lg:grid-cols-3 sm:grid-cols-2 grid-cols-1 gap-6 mt-10 max-w-7xl mx-auto">
+          {articleCaegoryData && articleCaegoryData?.slice(0, 6)?.map(({ title, description, slug }: any, index: number) => (
             <ArticleCard
               key={slug}
               icon={index}

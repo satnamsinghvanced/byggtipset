@@ -20,22 +20,22 @@ export async function generateMetadata({
 
   if (!placeData) {
     return {
-      title: "Eiendomsmegler | Byggtipset.no",
-      description: "Finn eiendomsmeglere i ditt område",
+      title: "Prosjekter | Byggtipset.no",
+      description: "Finn prosjekter i ditt område",
       robots: "index, follow",
       alternates: {
-        canonical: `https://Byggtipset.no/eiendomsmegler/${slugValue}`,
+        canonical: `https://Byggtipset.no/prosjekter/${slugValue}`,
       },
       openGraph: {
-        title: "Eiendomsmegler | Byggtipset.no",
-        description: "Finn eiendomsmeglere i ditt område",
-        url: `https://Byggtipset.no/eiendomsmegler/${slugValue}`,
+        title: "Prosjekter | Byggtipset.no",
+        description: "Finn prosjekter i ditt område",
+        url: `https://Byggtipset.no/prosjekter/${slugValue}`,
         type: "website",
       },
       twitter: {
         card: "summary_large_image",
-        title: "Eiendomsmegler | Byggtipset.no",
-        description: "Finn eiendomsmeglere i ditt område",
+        title: "Prosjekter | Byggtipset.no",
+        description: "Finn prosjekter i ditt område",
       },
     };
   }
@@ -55,7 +55,7 @@ export async function generateMetadata({
 
   const canonical = canonicalUrl?.startsWith("http")
     ? canonicalUrl
-    : `https://Byggtipset.no/eiendomsmegler/${canonicalUrl || slugValue}`;
+    : `https://Byggtipset.no/prosjekter/${canonicalUrl || slugValue}`;
 
   return {
     title: metaTitle || ogTitle || `${titleFromSlug} | Byggtipset.no`,

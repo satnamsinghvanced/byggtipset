@@ -1,6 +1,6 @@
 export const NAV_LINKS = [
     { href: "/", label: "Hjem" },
-    { href: "/eiendomsmegler", label: "Eiendomsmegler" },
+    { href: "/prosjekter", label: "Prosjekter" },
     { href: "/om-oss", label: "Om oss" },
     { href: "/partner", label: "Partner" },
     { href: "/ofte-stilte-sporsmal", label: "Ofte stilte spørsmål" },
