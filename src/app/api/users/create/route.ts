@@ -652,6 +652,11 @@ function matchPostalCode(
  */
 const isWishesMatch = (partner: any, userValues: any) => {
   const partnerWishes = partner.wishes || [];
+  const normalize = (v: any) => {
+    if (v === null || v === undefined) return "";
+    if (typeof v === "boolean") return v ? "true" : "false";
+    return String(v).trim().toLowerCase();
+  };
 
   // No wishes → auto match
   if (!partnerWishes.length) return true;
@@ -679,7 +684,7 @@ const isWishesMatch = (partner: any, userValues: any) => {
       return false;
     }
 
-    const userAnswer = String(userValues[field] || "").trim();
+    const userAnswer = normalize(userValues[field] || "");
 
     // EMPTY EXPECTEDANSWER → FAIL
     if (
@@ -691,7 +696,7 @@ const isWishesMatch = (partner: any, userValues: any) => {
     }
 
     const isMatch = expected.some(
-      (ans: any) => String(ans).trim() === userAnswer
+      (ans: any) => normalize(ans) === userAnswer
     );
 
     // WRONG ANSWER → FAIL
