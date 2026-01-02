@@ -725,7 +725,14 @@ const Form = ({
     const fieldProps = {
       key: `${field._id}-${formIndex}-${index}`,
       type: field.type,
-      label: `${field.label}${field.required ? " *" : ""}`,
+      label: (
+        <>
+          {field.label}
+          <span style={{ color: 'red' }}>
+            {field.required ? ' *' : ''}
+          </span>
+        </>
+      ),
       placeholder: field.placeholder || " ",
       required: field.required,
       labelPlacement: "outside" as const,
@@ -735,48 +742,187 @@ const Form = ({
       onBlur: () => handleBlur(formIndex, field.name, value, field),
     };
 
+
     const { key, ...restOfProps } = fieldProps;
 
     // Handle file input
+    // if (field.type === "file") {
+    //   return (
+    //     <div key={key} className="space-y-2 ">
+    //       <label className="font-medium">
+    //         {field.label} {field.required && "*"}
+    //       </label>
+    //       {isInvalid && (
+    //         <p className="text-danger text-sm">
+    //           {currentFormData?.errors[field.name]}
+    //         </p>
+    //       )}
+    //       <input
+    //         type="file"
+    //         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+    //         multiple={field.options?.includes("multiple")}
+    //         accept={field.accept || "*/*"}
+    //         onChange={(e) =>
+    //           handleFileChange(formIndex, field.name, e.target.files, field)
+    //         }
+    //         onBlur={() => handleBlur(formIndex, field.name, value, field)}
+    //       />
+    //       {field.maxSize && (
+    //         <p className="text-xs text-secondary">
+    //           Maksimal filstørrelse: {field.maxSize}MB
+    //         </p>
+    //       )}
+    //       {value && Array.isArray(value) && value.length > 0 && (
+    //         <div className="mt-2 space-y-1">
+    //           <p className="text-sm font-medium">Valgte filer:</p>
+    //           {value?.map((file: File, i: number) => (
+    //             <p key={i} className="text-sm text-secondary">
+    //               • {file.name} ({(file.size / 1024 / 1024).toFixed(2)}MB)
+    //             </p>
+    //           ))}
+    //         </div>
+    //       )}
+    //     </div>
+    //   );
+    // }
+
+
     if (field.type === "file") {
+      const fileInputId = `file-input-${formIndex}-${field.name}`;
+
+      const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Remove visual feedback
+        e.currentTarget.classList.remove('bg-primary/10', 'border-primary/50');
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleFileChange(formIndex, field.name, e.dataTransfer.files, field);
+        }
+      };
+
+      const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'copy';
+      };
+
+      const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.currentTarget.classList.add('bg-primary/10', 'border-primary/50');
+      };
+
+      const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        // Only remove class if leaving the actual drop zone, not just child elements
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX;
+        const y = e.clientY;
+
+        if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+          e.currentTarget.classList.remove('bg-primary/10', 'border-primary/50');
+        }
+      };
+
+      const handleLabelClick = () => {
+        const fileInput = document.getElementById(fileInputId) as HTMLInputElement;
+        if (fileInput) {
+          fileInput.click();
+        }
+      };
+
       return (
-        <div key={key} className="space-y-2 ">
-          <label className="font-medium">
-            {field.label} {field.required && "*"}
+        <div key={key} className="space-y-1">
+          <label className="">
+            <p className="font-medium">
+              {field.label} {field.required && "*"}
+
+            </p>
+            <p className="text-xs font-[400] text-secondary ">
+              Maks 3 bilder à 2 MB
+            </p>
           </label>
+
           {isInvalid && (
             <p className="text-danger text-sm">
               {currentFormData?.errors[field.name]}
             </p>
           )}
+
+          {/* Hidden file input */}
           <input
             type="file"
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+            id={fileInputId}
+            className="hidden"
             multiple={field.options?.includes("multiple")}
-            accept={field.accept || "*/*"}
-            onChange={(e) =>
-              handleFileChange(formIndex, field.name, e.target.files, field)
-            }
+            accept={field.accept || ".png,.heic,.heif,.jpg,.jpeg"}
+            onChange={(e) => {
+              handleFileChange(formIndex, field.name, e.target.files, field);
+            }}
             onBlur={() => handleBlur(formIndex, field.name, value, field)}
           />
+
+          {/* Visible drag and drop area */}
+          <div
+            className="flex flex-col items-center justify-center w-full h-34 border-2 border-dashed border-secondary/30 rounded-lg cursor-pointer bg-transparent transition-colors mt-2"
+            onClick={handleLabelClick}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            {/* Upload icon */}
+            <div className="w-12 h-12 mb-2">
+              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect width="48" height="48" rx="24" fill="#E6F1FE" />
+                <path d="M26.4106 16.2322V22.4447C26.4106 22.6722 26.2269 22.8559 26.0081 22.8559H22.0006C21.7731 22.8559 21.5894 22.6722 21.5894 22.4447V16.2322C21.5894 16.1009 21.4844 15.9872 21.3444 15.9872H20.4869C19.9444 15.9872 19.6556 15.3397 20.0231 14.9372L23.5406 11.0784C23.7944 10.8072 24.2231 10.8072 24.4681 11.0784L27.9769 14.9372C28.3444 15.3397 28.0556 15.9872 27.5131 15.9872H26.6556C26.5244 15.9872 26.4106 16.0922 26.4106 16.2322Z" fill="#006FEE" />
+                <path d="M17.1838 15.3659H18.9814C18.9903 16.1351 19.5972 16.8622 20.4869 16.8622H20.7144V17.1159H17.1838C15.635 17.1159 14.375 18.3759 14.375 19.9246V28.9634C14.375 30.5121 15.635 31.7722 17.1838 31.7722H20.115C20.3338 31.7722 20.5438 31.8772 20.6663 32.0522C21.4363 33.1547 22.7138 33.8809 24.1663 33.8809C25.6188 33.8809 26.8963 33.1547 27.6663 32.0522C27.7888 31.8772 27.9988 31.7722 28.2175 31.7722H31.1488C32.6965 31.7722 33.9558 30.5138 33.9575 28.9665V19.9246C33.94 18.3759 32.6888 17.1159 31.1313 17.1159H27.2856V16.8622H27.5131C28.4028 16.8622 29.0098 16.1351 29.0186 15.3659H31.1313C33.6625 15.3659 35.6792 17.4124 35.7074 19.9049L35.7075 19.9148V32.5158C35.7075 35.0318 33.6627 37.0746 31.1475 37.0746H17.185C14.6698 37.0746 12.625 35.0318 12.625 32.5158V19.9246C12.625 17.4094 14.6685 15.3659 17.1838 15.3659Z" fill="#006FEE" />
+                <path d="M18.785 19.3472H20.7144V20.2222H18.785C18.0783 20.2222 17.4988 20.8017 17.4988 21.5084V27.4672C17.4988 28.1739 18.0783 28.7534 18.785 28.7534H21.48C22.2239 28.7534 22.8117 29.2715 22.983 29.9329C23.1224 30.4624 23.5985 30.8447 24.1575 30.8447C24.7228 30.8447 25.1997 30.457 25.3304 29.9393L25.3313 29.9355C25.5017 29.2729 26.0902 28.7534 26.835 28.7534H29.53C30.2368 28.7534 30.8163 28.1739 30.8163 27.4672V21.5084C30.8163 20.7994 30.2432 20.2222 29.53 20.2222H27.2856V19.3472H29.53C30.7288 19.3472 31.6913 20.3184 31.6913 21.5084V27.4672C31.6913 28.6572 30.72 29.6284 29.53 29.6284H26.835C26.52 29.6284 26.2575 29.8472 26.1788 30.1534C25.9513 31.0547 25.1288 31.7197 24.1575 31.7197C23.1863 31.7197 22.3725 31.0547 22.1363 30.1534C22.0575 29.8472 21.795 29.6284 21.48 29.6284H18.785C17.595 29.6284 16.6238 28.6572 16.6238 27.4672V21.5084C16.6238 20.3184 17.595 19.3472 18.785 19.3472Z" fill="#006FEE" />
+              </svg>
+
+            </div>
+
+            {/* Norwegian text */}
+            <p className="mb-2 text-sm text-dark/80 text-center">
+              <span className="font-semibold">Drop filer her  eller </span >
+              <span className="text-primary">
+                klikk for å laste opp
+              </span>
+            </p>
+
+            {/* File format instructions */}
+            <p className="text-xs  text-center px-4 text-secondary/70">
+              PNG, HEIC / HEIF og JPG (maks. 1024x1600px)
+            </p>
+          </div>
+
           {field.maxSize && (
-            <p className="text-xs text-secondary">
+            <p className="text-xs text-secondary text-secondary/70">
               Maksimal filstørrelse: {field.maxSize}MB
             </p>
           )}
+
+          {/* Selected files preview */}
           {value && Array.isArray(value) && value.length > 0 && (
             <div className="mt-2 space-y-1">
               <p className="text-sm font-medium">Valgte filer:</p>
               {value?.map((file: File, i: number) => (
-                <p key={i} className="text-sm text-secondary">
-                  • {file.name} ({(file.size / 1024 / 1024).toFixed(2)}MB)
-                </p>
+                <div key={i} className="flex items-center justify-between text-sm">
+                  <span className="text-secondary">• {file.name}</span>
+                  <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)}MB)</span>
+                </div>
               ))}
             </div>
           )}
         </div>
       );
     }
+
+
+
 
     if (field.name === "address" && field.type === "text") {
       const addressFieldBase = {
@@ -793,9 +939,9 @@ const Form = ({
         !!currentFormData?.errors.postalCode;
 
       return (
-        <label key={key} className="font-medium text-small !mt-[-20px]">
+        <label key={key} className="font-medium text-small   ">
           {field.label} <span className="text-[#ff0000]">{field.required ? " *" : ""}</span>
-          <div className="flex gap-3 h-16">
+          <div className="flex gap-3 h-16 ">
             <Input
               type="text"
               placeholder="Adresseplassen 13"
@@ -962,7 +1108,7 @@ const Form = ({
             className="h-auto"
             classNames={{
               inputWrapper: "min-h-auto h-auto",
-              input: "min-h-64",
+              input: "min-h-48",
             }}
             onChange={(e: any) =>
               handleChange(formIndex, field.name, e.target.value, field)
@@ -1320,7 +1466,7 @@ const Form = ({
         ) : (
           // Initial state: Show form selection while first form loads in background
           <div className="rounded-xl shadow-md p-8 bg-background max-w-xl mx-auto">
-            <h3 className="text-2xl font-semibold mb-6">Step 1</h3>
+            {/* <h3 className="text-2xl font-semibold mb-6">Step 1</h3> */}
 
             <div className="flex flex-col gap-[55px] text-[16px] font-semibold min-h-[300px]">
               {formSelect.length > 1 && < FormSelectionField
