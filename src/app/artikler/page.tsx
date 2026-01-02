@@ -4,16 +4,22 @@ import { getCachedArticlesPageData } from "@/services/page/article-page-service"
 import { generatePageMetadata } from "@/utils/metadata";
 import ArticleContent from "./articleContent";
 
+
 const getArticlePageData = async () => {
   const doc = await getCachedArticlesPageData();
   return await JSON.parse(JSON.stringify(doc));
 };
-
-export async function generateMetadata() {
+interface PageProps {
+  searchParams: {
+    page?: string;
+  };
+}
+export async function generateMetadata({ searchParams }: PageProps) {
+  const page = await searchParams;
   const articlesPage = await getArticlePageData();
   if (!articlesPage) {
     return generatePageMetadata({
-      title: "Artikler | Byggtipset.no",
+      title: "Artikler |  Byggtipset.no",
       description: "Read expert Artikler about real estate in Norway",
       path: "/artikler",
     });
@@ -56,7 +62,7 @@ export async function generateMetadata() {
       ogDescription ||
       metaDescription ||
       "Compare top real estate agents in Norway easily with Byggtipset.no.",
-    canonicalUrl: canonicalUrl || "/artikler",
+    canonicalUrl: `${page.page ? `${canonicalUrl}?page=${page.page}` : canonicalUrl}` || "/artikler",
     robots: robots || "index, follow",
     jsonLd: jsonLd || {
       "@context": "https://schema.org",
