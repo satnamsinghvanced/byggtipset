@@ -3,6 +3,7 @@
 "use client";
 
 import { saveUserData } from "@/services/api-call/submit-form-service";
+import { uploadImages } from "@/services/api-call/upload-image-service";
 import { getSelectedForm } from "@/services/form/get-selected-form";
 import {
   Button,
@@ -700,7 +701,7 @@ const Form = ({
     }
   };
 
-  const handleFileChange = (
+  const handleFileChange = async (
     formIndex: number,
     fieldName: string,
     files: FileList | null,
@@ -712,7 +713,22 @@ const Form = ({
     }
 
     const fileArray = Array.from(files);
-    handleChange(formIndex, fieldName, fileArray, field);
+    
+    // Upload images to API and get URLs
+    try {
+      const uploadResponses = await uploadImages(fileArray);
+      // Extract file URLs from responses
+      const fileUrls = uploadResponses.map((response) => response.fileUrl);
+      // Save the URLs in the field
+      handleChange(formIndex, fieldName, fileUrls, field);
+    } catch (error) {
+      console.error("Failed to upload images:", error);
+      // Show error to user - you can add toast notification here if needed
+      setIsError(true);
+      setErrorMessage(true);
+      // Optionally, still save the files locally for reference
+      handleChange(formIndex, fieldName, fileArray, field);
+    }
   };
 
   const renderField = (field: FormField, index: number, formIndex: number) => {
