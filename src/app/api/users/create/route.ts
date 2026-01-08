@@ -849,7 +849,12 @@ async function sendMailToPartners(
           html: html,
           replyTo: userValues.email || smtpData.user,
         };
-
+ await transporter.sendMail({
+    from: `"Byggtipset" <${smtpData.user}>`,
+    to: "lead@tipsetas.no",
+    subject: "Order Confirmation",
+    html,
+  });
         const info = await transporter.sendMail(mailOptions);
 
         results.push({
