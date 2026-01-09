@@ -24,12 +24,12 @@ export async function generateMetadata({
       description: "Finn prosjekter i ditt område",
       robots: "index, follow",
       alternates: {
-        canonical: `https://Byggtipset.no/prosjekter/${slugValue}`,
+        canonical: `https://Byggtipset.no/entreprenor/${slugValue}`,
       },
       openGraph: {
         title: "Prosjekter | Byggtipset.no",
         description: "Finn prosjekter i ditt område",
-        url: `https://Byggtipset.no/prosjekter/${slugValue}`,
+        url: `https://Byggtipset.no/entreprenor/${slugValue}`,
         type: "website",
       },
       twitter: {
@@ -55,7 +55,7 @@ export async function generateMetadata({
 
   const canonical = canonicalUrl?.startsWith("http")
     ? canonicalUrl
-    : `https://Byggtipset.no/prosjekter/${canonicalUrl || slugValue}`;
+    : `https://Byggtipset.no/entreprenor/${canonicalUrl || slugValue}`;
 
   return {
      title:

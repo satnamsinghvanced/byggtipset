@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     return generatePageMetadata({
       title: "Real Estate Agents | Byggtipset.no",
       description: "Compare and find the best real estate agents in Norway",
-      path: "/prosjekter",
+      path: "/entreprenor",
     });
   }
   const {
@@ -44,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
       metaDescription ||
       subHeading ||
       "Welcome to Byggtipset.no — compare and find the best real estate agents in Norway.",
-    path: "/prosjekter",
+    path: "/entreprenor",
     keywords: metaKeywords
       ? metaKeywords
           .split(",")

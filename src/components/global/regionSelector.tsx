@@ -50,7 +50,7 @@ export default function RegionSelector({
 
               return (
                 <Link
-                  href={`/prosjekter/${city.slug}`}
+                  href={`/entreprenor/${city.slug}`}
                   key={city.slug}
                   className={`bg-transparent rounded-none text-2xl px-0 font-medium flex justify-between items-center border-b transition-colors duration-300 ${isBorderRemoved
                     ? "border-transparent"
