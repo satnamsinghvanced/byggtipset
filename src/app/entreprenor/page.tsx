@@ -58,7 +58,7 @@ export async function generateMetadata(): Promise<Metadata> {
       ogDescription ||
       metaDescription ||
       "Compare top real estate agents in Norway easily with Byggtipset.no.",
-    canonicalUrl: canonicalUrl || "/prosjekter",
+    canonicalUrl: canonicalUrl || "/entreprenor",
     robots: robots || "index, follow",
     jsonLd: jsonLd || {
       "@context": "https://schema.org",
