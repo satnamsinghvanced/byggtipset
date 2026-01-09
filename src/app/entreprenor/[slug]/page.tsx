@@ -58,7 +58,14 @@ export async function generateMetadata({
     : `https://Byggtipset.no/prosjekter/${canonicalUrl || slugValue}`;
 
   return {
-    title: metaTitle || ogTitle || `${titleFromSlug} | Byggtipset.no`,
+     title:
+      placeData?.data?.title ||
+      placeData?.data?.companyName ||
+      placeData?.companyName ||
+      placeData?.title ||
+      placeData?.name ||
+      metaTitle ||
+      ogTitle || `${titleFromSlug} | Byggtipset.no`,
     description: metaDescription || ogDescription || "",
     keywords: metaKeywords
       ? metaKeywords.split(",").map((k: any) => k.trim())
