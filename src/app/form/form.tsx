@@ -417,7 +417,7 @@ const Form = ({
         } else if (field.name === "postalCode" && value?.length !== 4) {
           return `${field.label} skal være 4 sifre`;
         } else if (
-          field.type === "checkbox" &&
+          (field.type === "checkbox" || field.type === "select") &&
           Array.isArray(field.options) &&
           field.options.length > 0
         ) {
@@ -713,7 +713,7 @@ const Form = ({
     }
 
     const fileArray = Array.from(files);
-    
+
     // Upload images to API and get URLs
     try {
       const uploadResponses = await uploadImages(fileArray);
@@ -1212,7 +1212,8 @@ const Form = ({
           </div>
         );
 
-        case "checkbox":
+      case "select":
+      case "checkbox":
         const isCheckboxChecked = (fieldName: string, optionValue?: string) => {
           if (Array.isArray(value)) return value.includes(optionValue || "");
           return value === optionValue || !!value;
@@ -1228,9 +1229,10 @@ const Form = ({
                     {currentFormData?.errors[field.name]}
                   </p>
                 )}
-                <div className="flex flex-col gap-2">
-                {field.options?.map((opt: string, optIndex: number) => {
-                    const isMulti = field.name === "multi";
+                <div className={`flex flex-col gap-2 ${field.name === "project" ? "gap-6" : " "}`}>
+                  {field.options?.map((opt: string, optIndex: number) => {
+                    // Treat select fields as multi-select by default; checkbox uses name === "multi" for legacy single/multi behavior
+                    const isMulti = field.type === "select" || field.name === "multi";
 
                     const isSelected = isMulti
                       ? Array.isArray(value)
