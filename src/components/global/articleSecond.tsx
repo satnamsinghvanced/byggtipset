@@ -3,7 +3,7 @@ import { getCachedTopArticles } from "@/services/page/topArticles-service";
 import Link from "next/link";
 import ArticlesCard from "../cards/articleCard";
 import Button from "./button";
-import Heading from "./heading";
+
 
 interface ArticleSecondProps {
   title?: string;
@@ -19,8 +19,7 @@ const ArticleSecond = async ({
   const articlesData = articlest.data
   return (
     <div className="py-8">
-      <Heading heading={title} className="text-center" />
-
+     <h2 className={`text-primary font-bold lg:text-5xl text-[36px] lg:mb-10 mb-6 text-center`}>{title}</h2>
       {!articlesData || articlesData.length === 0 ? (
         <div className="flex justify-center items-center py-12">
           <div className="text-lg">Ingen artikler tilgjengelig</div>
