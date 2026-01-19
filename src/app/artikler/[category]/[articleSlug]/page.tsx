@@ -10,7 +10,7 @@ export async function generateMetadata({ params }: SlugPageProps) {
   const slug = param.articleSlug ?? "article";
   const articleCategory = param.category ?? "article";
   const title = capitalizeTitle(slug);
-  const articleDoc = await getCachedArticleBySlug(slug ?? "");
+ const articleDoc = await getCachedArticleBySlug(articleCategory ?? "", slug ?? "");
   if (!articleDoc) {
     return generatePageMetadata({
       title: `${title} `,
@@ -82,7 +82,7 @@ const ArticleSlugPage = async ({ params }: SlugPageProps) => {
   }
   return (
     <div className="max-w-7xl m-auto py-10 px-4 md:px-6 lg:px-8">
-      <ArticleSlug slugValue={title} />
+       <ArticleSlug slugValue={title} categorySlug={categoryOnDetailPage} />
     </div>
   );
 };
