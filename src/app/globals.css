@@ -9,19 +9,20 @@
 }
 
 
-
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   
 ::-webkit-scrollbar {
   width: 12px;
   height: 12px;
 }
-input[type=number]::-webkit-inner-spin-button,
+real-estate-content input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none !important;
   margin: 0 !important;
 }
 
 input[type=number] {
-  -moz-appearance: textfield !important; /* Firefox */
+   -moz-appearance: textfield !important;
+   /* Firefox */
 }
 
 ::-webkit-scrollbar-thumb {
@@ -80,7 +81,13 @@ body {
   .article-content p {
     @apply mb-4 text-[14px] lg:text-[16px] text-secondary;
   }
+article-content p a {
+    @apply mb-4 text-[14px] lg:text-[16px] !text-blue-500;
+  }
 
+  .article-content a {
+    @apply mb-4 text-[14px] lg:text-[16px] !text-blue-500;
+  }
   .prosjekter-content h2 {
     @apply mb-4 text-[24px] lg:text-[48px] text-primary font-semibold lg:leading-16 leading-8;
 
@@ -89,6 +96,13 @@ body {
   .prosjekter-content p {
     @apply mb-4 text-[14px] lg:text-[16px] text-primary;
 
+  }
+  .prosjekter-content p a {
+    @apply mb-4 text-[14px] lg:text-[16px] !text-blue-500;
+  }
+
+  .prosjekter-content a {
+    @apply mb-4 text-[14px] lg:text-[16px] !text-blue-500;
   }
 
   /* real-estate-content  */

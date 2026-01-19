@@ -4,7 +4,7 @@ import { capitalizeTitle } from "@/utils/capitalizeTitle";
 import { generatePageMetadata } from "@/utils/metadata";
 import ArticleSlug from "./articleSlug";
 import { notFound } from "next/navigation";
-
+import { getCachedArticlesByCategory } from "@/services/page/article-service";
 export async function generateMetadata({ params }: SlugPageProps) {
   const param = await params;
   const slug = param.articleSlug ?? "article";
@@ -71,8 +71,14 @@ export async function generateMetadata({ params }: SlugPageProps) {
 const ArticleSlugPage = async ({ params }: SlugPageProps) => {
   const param = await params;
   const title = await param?.articleSlug;
-  if (!title) {
-    notFound()
+ const categoryOnDetailPage = param.category ?? "article";
+  const articlesData = await getCachedArticlesByCategory({
+    categorySlug: categoryOnDetailPage,
+    page: 1,
+    limit: 1,
+  });
+  if (!title || !articlesData.success) {
+    notFound();
   }
   return (
     <div className="max-w-7xl m-auto py-10 px-4 md:px-6 lg:px-8">
