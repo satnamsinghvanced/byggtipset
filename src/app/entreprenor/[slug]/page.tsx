@@ -53,9 +53,14 @@ export async function generateMetadata({
     ogType,
   } = placeData || {};
 
-  const canonical = canonicalUrl?.startsWith("http")
+ const BASE_URL = "https://byggtipset.no";
+
+const canonical =
+  canonicalUrl &&
+  canonicalUrl.startsWith(`${BASE_URL}/entreprenor/`)
     ? canonicalUrl
-    : `https://Byggtipset.no/entreprenor/${canonicalUrl || slugValue}`;
+    : `${BASE_URL}/entreprenor/${slugValue}`;
+
 
   return {
      title:
