@@ -37,7 +37,7 @@ const ArticlesList = async ({
         ) : (
           <div className="col-span-full text-center py-8">
             <p className="text-lg text-secondary/50">
-              No artikler found for this category.
+                Ingen artikler funnet for denne kategorien.
             </p>
           </div>
         )}
