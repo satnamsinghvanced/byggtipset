@@ -55,7 +55,7 @@ const SlugContent = async ({
       isImageValid = false;
     }
   }
-  const finalSrc = isImageValid ? fullUrl : "/images/realEstate.webp";
+  const finalSrc = isImageValid ? fullUrl : "";
   return (
     <>
       <div className="w-full flex gap-8 flex-row max-md:flex-col">
