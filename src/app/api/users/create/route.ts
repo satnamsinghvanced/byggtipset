@@ -664,7 +664,7 @@ const isWishesMatch = (partner: any, userValues: any) => {
   for (const wish of partnerWishes) {
     if (!wish.question || wish.question.trim() === "") {
       console.log("Wish question empty → FAIL");
-      return false;
+      continue;
     }
 
     const question = wish.question.trim();
