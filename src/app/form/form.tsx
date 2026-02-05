@@ -170,9 +170,6 @@ const FormSelectionField = ({
 }) => {
   return (
     <div className="space-y-2">
-      {/* <label className="font-medium">
-        {isMultiSelectMode ? "Select Forms (Choose Multiple)" : "Select Form Type"} *
-      </label> */}
       {isInvalid && error && touched && (
         <p className="text-danger text-sm">{error}</p>
       )}
@@ -242,11 +239,13 @@ const Form = ({
   const [isMultiSelectMode] = useState<boolean>(isMultiSelect);
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState<any>(false);
-  const [uploadingFields, setUploadingFields] = useState<Record<string, boolean>>({});
+  const [uploadingFields, setUploadingFields] = useState<Record<string, number>>({});
+  const [partnerNames, setPartnerNames] = useState<string[]>([]);
 
   const hideMessageBox = () => {
     setIsError(false);
   };
+
   // Initialize with first form selection
   useEffect(() => {
     if (formSelect && formSelect.length > 0 && selectedForms.length === 0) {
@@ -307,7 +306,6 @@ const Form = ({
 
     try {
       const data = await getSelectedForm(formId);
-      // console.log(`Fetched form data for ${formId}:`, data);
 
       // Update form data for this form
       setSelectedForms((prev) =>
@@ -467,7 +465,15 @@ const Form = ({
             if (Array.isArray(value) && field.maxSize) {
               const maxSizeBytes = field.maxSize * 1024 * 1024; // Convert MB to bytes
               const oversizedFiles = value.filter(
-                (file: File) => file.size > maxSizeBytes
+                (file: any) => {
+                  if (file && file.file && file.file.size) {
+                    return file.file.size > maxSizeBytes;
+                  }
+                  if (file && file.size) {
+                    return file.size > maxSizeBytes;
+                  }
+                  return false;
+                }
               );
               if (oversizedFiles.length > 0) {
                 return `Fil(er) overskrider maksimal størrelse på ${field.maxSize}MB`;
@@ -653,21 +659,108 @@ const Form = ({
       setCurrentStep(prevFormVisibleSteps.length - 1);
     }
   };
-  const [partnerNames, setPartnerNames] = useState<string[]>([]);
+
   const handleFormSubmit = async () => {
     try {
       setSubmitLoading(true);
-      // Create separate objects for each form
-      const formSubmissions = selectedForms?.map((form) => ({
-        formId: form.id,
-        formTitle: form?.title,
-        values: form.values,
-      }));
+
+      // Check if any files are still uploading
+      const uploadingCount = Object.values(uploadingFields).reduce((a, b) => a + b, 0);
+      if (uploadingCount > 0) {
+        setIsError(true);
+        setErrorMessage("Vennligst vent til alle bildene er lastet opp.");
+        setSubmitLoading(false);
+        return;
+      }
+
+      // Check if any file fields still have File objects (not uploaded)
+      const hasUnuploadedFiles = selectedForms.some((form) => {
+        const fileFields = form.formData?.steps
+          ?.flatMap((step: FormStep) => step.fields)
+          ?.filter((field: FormField) => field.type === "file") || [];
+
+        return fileFields.some((field: FormField) => {
+          const value = form.values[field.name];
+          if (!value) return false;
+
+          if (Array.isArray(value)) {
+            return value.some((item: any) =>
+              (item && typeof item === 'object' && item.file && !item.url) ||
+              (item instanceof File)
+            );
+          }
+
+          return (value && typeof value === 'object' && value.file && !value.url) ||
+            (value instanceof File);
+        });
+      });
+
+      if (hasUnuploadedFiles) {
+        setIsError(true);
+        setErrorMessage("Noen bilder er ikke ferdig opplastet. Vennligst vent eller last opp på nytt.");
+        setSubmitLoading(false);
+        return;
+      }
+
+      // Prepare form submissions with file URLs
+      const formSubmissions = selectedForms?.map((form) => {
+        // Extract all file field values and convert them to URLs
+        const formDataWithUrls = { ...form.values };
+
+        // Find all file fields in the form
+        const fileFields = form.formData?.steps
+          ?.flatMap((step: FormStep) => step.fields)
+          ?.filter((field: FormField) => field.type === "file") || [];
+
+        // Process each file field to extract URLs
+        fileFields.forEach((field: FormField) => {
+          const fieldName = field.name;
+          const fieldValue = form.values[fieldName];
+
+          if (fieldValue) {
+            if (Array.isArray(fieldValue)) {
+              // Convert array of file objects to array of URLs
+              const urls = fieldValue.map((item: any) => {
+                // If it's already a string URL
+                if (typeof item === 'string') return item;
+
+                // If it's an object with url property
+                if (item && typeof item === 'object' && item.url) {
+                  return item.url;
+                }
+
+                // If it's an object with file property (pending upload)
+                if (item && typeof item === 'object' && item.file) {
+                  console.warn(`File ${fieldName} at index ${fieldValue.indexOf(item)} is still a File object, not uploaded`);
+                  return null;
+                }
+
+                return null;
+              }).filter((url: string | null) => url !== null);
+
+              formDataWithUrls[fieldName] = urls;
+            } else if (typeof fieldValue === 'object' && fieldValue.url) {
+              // Single file object
+              formDataWithUrls[fieldName] = fieldValue.url;
+            } else if (typeof fieldValue === 'string') {
+              // Already a URL string
+              formDataWithUrls[fieldName] = fieldValue;
+            }
+          }
+        });
+
+        return {
+          formId: form.id,
+          formTitle: form.title,
+          values: formDataWithUrls,
+        };
+      });
+
+      console.log("Submitting form data:", JSON.stringify(formSubmissions, null, 2));
 
       // Submit all forms as separate objects
       const res = await saveUserData(formSubmissions);
       console.log("Submission result:", res);
-      console.log("Submission result:", res.status); // Complete for success
 
       const { success, isValidationError } = res;
 
@@ -679,19 +772,19 @@ const Form = ({
         }, 10000);
         return;
       }
+
       if (res.status === "Complete") {
         setCompanyFound(true);
         const partnerNames = res.partners?.map((p: any) => p.name).join(", ");
-
-        // Save partner names in state
         setPartnerNames(partnerNames);
-
-        //  setPartnerNames(res.partners || []);
         return;
       }
+
       setCompanyNotFound(true);
     } catch (error: any) {
-      console.log("form submission error: ", error);
+      console.error("Form submission error: ", error);
+      setIsError(true);
+      setErrorMessage("Noe gikk galt ved innsendingen. Vennligst prøv igjen.");
     } finally {
       setSubmitLoading(false);
     }
@@ -709,66 +802,132 @@ const Form = ({
     files: FileList | null,
     field: FormField
   ) => {
+    const fieldKey = `${formIndex}-${fieldName}`;
+
     if (!files || files.length === 0) {
-      handleChange(formIndex, fieldName, null, field);
       return;
     }
 
     const fileArray = Array.from(files);
-    const fieldKey = `${formIndex}-${fieldName}`;
 
-    // Upload images to API and get URLs
-    try {
-      setUploadingFields((prev) => ({ ...prev, [fieldKey]: true }));
-      const uploadResponses = await uploadImages(fileArray);
-      // Extract file URLs from responses
-      const fileUrls = uploadResponses.map((response) => response.fileUrl);
-      // Save the URLs in the field
-      if (field.options?.includes("multiple")) {
-        setSelectedForms((prev) =>
-          prev.map((form, i) => {
-            if (i !== formIndex) return form;
-            const currentValues = Array.isArray(form.values[fieldName]) ? form.values[fieldName] : [];
-            const newValues = [...currentValues, ...fileUrls];
+    // 1. VALIDATION: Check 3-image limit
+    const currentValues = Array.isArray(selectedForms[formIndex].values[fieldName])
+      ? selectedForms[formIndex].values[fieldName]
+      : [];
 
-            // Re-validate after change
-            const error = validateField(fieldName, newValues, field, formIndex);
-            return {
-              ...form,
-              values: { ...form.values, [fieldName]: newValues },
-              errors: error
-                ? { ...form.errors, [fieldName]: error }
-                : Object.fromEntries(Object.entries(form.errors).filter(([k]) => k !== fieldName)),
-              touched: { ...form.touched, [fieldName]: true }
-            };
-          })
-        );
-      } else {
-        handleChange(formIndex, fieldName, fileUrls, field);
+    const totalCount = currentValues.length + fileArray.length;
+    if (totalCount > 3) {
+      setIsError(true);
+      setErrorMessage("Du kan maksimalt laste opp 3 bilder.");
+      return;
+    }
+
+    // 2. VALIDATION: Check file types and sizes
+    const allowedTypes = [".png", ".heic", ".heif", ".jpg", ".jpeg"];
+    const maxSizeBytes = 2 * 1024 * 1024; // 2MB
+
+    for (const file of fileArray) {
+      const extension = `.${file.name.split('.').pop()?.toLowerCase()}`;
+      const isValidType = allowedTypes.includes(extension) || file.type.startsWith('image/');
+
+      if (!isValidType) {
+        setIsError(true);
+        setErrorMessage(`Ugyldig filtype: ${file.name}. Kun PNG, JPG og HEIC er tillatt.`);
+        return;
       }
+
+      if (file.size > maxSizeBytes) {
+        setIsError(true);
+        setErrorMessage(`Filen ${file.name} er for stor. Maksimal størrelse er 2 MB.`);
+        return;
+      }
+    }
+
+    // 3. Add File objects to state with unique IDs for tracking
+    const filesWithIds = fileArray.map((file, index) => ({
+      id: `${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+      file,
+      isUploading: true,
+      previewUrl: URL.createObjectURL(file)
+    }));
+
+    setSelectedForms((prev) =>
+      prev.map((form, i) => {
+        if (i !== formIndex) return form;
+        const currentVals = Array.isArray(form.values[fieldName]) ? form.values[fieldName] : [];
+        return {
+          ...form,
+          values: {
+            ...form.values,
+            [fieldName]: [...currentVals, ...filesWithIds]
+          },
+        };
+      })
+    );
+
+    // 4. Start background upload for each file
+    setUploadingFields((prev) => ({
+      ...prev,
+      [fieldKey]: (prev[fieldKey] || 0) + fileArray.length
+    }));
+
+    try {
+      const uploadResponses = await uploadImages(fileArray);
+
+      // Update state with uploaded URLs
+      setSelectedForms((prev) =>
+        prev.map((form, i) => {
+          if (i !== formIndex) return form;
+
+          const currentVals = Array.isArray(form.values[fieldName])
+            ? form.values[fieldName]
+            : [];
+
+          // Update each file with its uploaded URL using unique ID matching
+          const updatedValues = currentVals.map((item: any) => {
+            // Find if this item belongs to the batch we just uploaded
+            const matchedFileInBatch = filesWithIds.find(f => f.id === item.id);
+
+            if (matchedFileInBatch && !item.url) {
+              const fileIndexInBatch = filesWithIds.indexOf(matchedFileInBatch);
+              if (fileIndexInBatch !== -1 && uploadResponses[fileIndexInBatch]) {
+                return {
+                  ...item,
+                  url: uploadResponses[fileIndexInBatch].fileUrl,
+                  isUploading: false
+                };
+              }
+            }
+            return item;
+          });
+
+          // Clean up any File objects that don't have URLs (shouldn't happen, but just in case)
+          const cleanedValues = updatedValues.filter((item: any) => item.url);
+
+          const error = validateField(fieldName, cleanedValues, field, formIndex);
+          return {
+            ...form,
+            values: { ...form.values, [fieldName]: cleanedValues },
+            errors: error
+              ? { ...form.errors, [fieldName]: error }
+              : Object.fromEntries(Object.entries(form.errors).filter(([k]) => k !== fieldName)),
+            touched: { ...form.touched, [fieldName]: true }
+          };
+        })
+      );
     } catch (error) {
       console.error("Failed to upload images:", error);
       setIsError(true);
-      setErrorMessage(true);
-      // Optionally, still save the files locally for reference
-      if (field.options?.includes("multiple")) {
-        setSelectedForms((prev) =>
-          prev.map((form, i) => {
-            if (i !== formIndex) return form;
-            const currentValues = Array.isArray(form.values[fieldName]) ? form.values[fieldName] : [];
-            return {
-              ...form,
-              values: { ...form.values, [fieldName]: [...currentValues, ...fileArray] }
-            };
-          })
-        );
-      } else {
-        handleChange(formIndex, fieldName, fileArray, field);
-      }
+      setErrorMessage("Noen bilder kunne ikke lastes opp. Vennligst prøv igjen.");
     } finally {
       setUploadingFields((prev) => {
         const newState = { ...prev };
-        delete newState[fieldKey];
+        const currentCount = (newState[fieldKey] || 0) - fileArray.length;
+        if (currentCount <= 0) {
+          delete newState[fieldKey];
+        } else {
+          newState[fieldKey] = currentCount;
+        }
         return newState;
       });
     }
@@ -777,7 +936,7 @@ const Form = ({
   const handleRemoveFile = (
     formIndex: number,
     fieldName: string,
-    fileToRemove: string | File,
+    fileToRemove: any,
     field: FormField
   ) => {
     setSelectedForms((prev) =>
@@ -787,7 +946,14 @@ const Form = ({
         const currentValues = form.values[fieldName];
         if (!Array.isArray(currentValues)) return form;
 
-        const newValues = currentValues.filter((v) => v !== fileToRemove);
+        // Remove by ID if it's the new format, otherwise by reference
+        const newValues = currentValues.filter((v) => {
+          if (v.id && fileToRemove.id) {
+            return v.id !== fileToRemove.id;
+          }
+          return v !== fileToRemove;
+        });
+
         const newFormValues = { ...form.values, [fieldName]: newValues };
 
         // Re-validate after removal
@@ -821,9 +987,6 @@ const Form = ({
       label: (
         <>
           {field.label}
-          {/* <span style={{ color: 'red' }}>
-            {field.required ? ' *' : ''}
-          </span> */}
         </>
       ),
       placeholder: field.placeholder || " ",
@@ -835,50 +998,7 @@ const Form = ({
       onBlur: () => handleBlur(formIndex, field.name, value, field),
     };
 
-
     const { key, ...restOfProps } = fieldProps;
-
-    // Handle file input
-    // if (field.type === "file") {
-    //   return (
-    //     <div key={key} className="space-y-2 ">
-    //       <label className="font-medium">
-    //         {field.label} {field.required && "*"}
-    //       </label>
-    //       {isInvalid && (
-    //         <p className="text-danger text-sm">
-    //           {currentFormData?.errors[field.name]}
-    //         </p>
-    //       )}
-    //       <input
-    //         type="file"
-    //         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-    //         multiple={field.options?.includes("multiple")}
-    //         accept={field.accept || "*/*"}
-    //         onChange={(e) =>
-    //           handleFileChange(formIndex, field.name, e.target.files, field)
-    //         }
-    //         onBlur={() => handleBlur(formIndex, field.name, value, field)}
-    //       />
-    //       {field.maxSize && (
-    //         <p className="text-xs text-secondary">
-    //           Maksimal filstørrelse: {field.maxSize}MB
-    //         </p>
-    //       )}
-    //       {value && Array.isArray(value) && value.length > 0 && (
-    //         <div className="mt-2 space-y-1">
-    //           <p className="text-sm font-medium">Valgte filer:</p>
-    //           {value?.map((file: File, i: number) => (
-    //             <p key={i} className="text-sm text-secondary">
-    //               • {file.name} ({(file.size / 1024 / 1024).toFixed(2)}MB)
-    //             </p>
-    //           ))}
-    //         </div>
-    //       )}
-    //     </div>
-    //   );
-    // }
-
 
     if (field.type === "file") {
       const fileInputId = `file-input-${formIndex}-${field.name}`;
@@ -934,7 +1054,6 @@ const Form = ({
           <label className="">
             <p className="font-medium">
               {field.label} {field.required && "*"}
-
             </p>
             <p className="text-xs font-[400] text-secondary ">
               Maks 3 bilder à 2 MB
@@ -962,7 +1081,7 @@ const Form = ({
           />
 
           {/* Visible drag and drop area */}
-          {(!value || (Array.isArray(value) && value.length === 0)) && !isUploading && (
+          {(!value || (Array.isArray(value) && value.length < 3)) && (
             <div
               className="flex flex-col items-center justify-center w-full h-34 border-2 border-dashed border-secondary/30 rounded-lg cursor-pointer bg-transparent transition-colors mt-2"
               onClick={handleLabelClick}
@@ -979,7 +1098,6 @@ const Form = ({
                   <path d="M17.1838 15.3659H18.9814C18.9903 16.1351 19.5972 16.8622 20.4869 16.8622H20.7144V17.1159H17.1838C15.635 17.1159 14.375 18.3759 14.375 19.9246V28.9634C14.375 30.5121 15.635 31.7722 17.1838 31.7722H20.115C20.3338 31.7722 20.5438 31.8772 20.6663 32.0522C21.4363 33.1547 22.7138 33.8809 24.1663 33.8809C25.6188 33.8809 26.8963 33.1547 27.6663 32.0522C27.7888 31.8772 27.9988 31.7722 28.2175 31.7722H31.1488C32.6965 31.7722 33.9558 30.5138 33.9575 28.9665V19.9246C33.94 18.3759 32.6888 17.1159 31.1313 17.1159H27.2856V16.8622H27.5131C28.4028 16.8622 29.0098 16.1351 29.0186 15.3659H31.1313C33.6625 15.3659 35.6792 17.4124 35.7074 19.9049L35.7075 19.9148V32.5158C35.7075 35.0318 33.6627 37.0746 31.1475 37.0746H17.185C14.6698 37.0746 12.625 35.0318 12.625 32.5158V19.9246C12.625 17.4094 14.6685 15.3659 17.1838 15.3659Z" fill="#006FEE" />
                   <path d="M18.785 19.3472H20.7144V20.2222H18.785C18.0783 20.2222 17.4988 20.8017 17.4988 21.5084V27.4672C17.4988 28.1739 18.0783 28.7534 18.785 28.7534H21.48C22.2239 28.7534 22.8117 29.2715 22.983 29.9329C23.1224 30.4624 23.5985 30.8447 24.1575 30.8447C24.7228 30.8447 25.1997 30.457 25.3304 29.9393L25.3313 29.9355C25.5017 29.2729 26.0902 28.7534 26.835 28.7534H29.53C30.2368 28.7534 30.8163 28.1739 30.8163 27.4672V21.5084C30.8163 20.7994 30.2432 20.2222 29.53 20.2222H27.2856V19.3472H29.53C30.7288 19.3472 31.6913 20.3184 31.6913 21.5084V27.4672C31.6913 28.6572 30.72 29.6284 29.53 29.6284H26.835C26.52 29.6284 26.2575 29.8472 26.1788 30.1534C25.9513 31.0547 25.1288 31.7197 24.1575 31.7197C23.1863 31.7197 22.3725 31.0547 22.1363 30.1534C22.0575 29.8472 21.795 29.6284 21.48 29.6284H18.785C17.595 29.6284 16.6238 28.6572 16.6238 27.4672V21.5084C16.6238 20.3184 17.595 19.3472 18.785 19.3472Z" fill="#006FEE" />
                 </svg>
-
               </div>
 
               {/* Norwegian text */}
@@ -996,6 +1114,8 @@ const Form = ({
               </p>
             </div>
           )}
+          {/* {isError && <p className="text-xs text-red-500 text-start">{errorMessage}</p>} */}
+
 
           {field.maxSize && (
             <p className="text-xs text-secondary text-secondary/70">
@@ -1003,32 +1123,67 @@ const Form = ({
             </p>
           )}
 
-          {/* Selected files preview */}
+          {/* Selected files preview with sequence numbers */}
           {(isUploading || (value && Array.isArray(value) && value.length > 0)) && (
             <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {/* Existing files */}
-              {Array.isArray(value) && value?.map((file: string | File, i: number) => {
-                const isString = typeof file === "string";
-                const fileName = isString ? file.split('/').pop() : file.name;
-                const fileUrl = isString
-                  ? (file.startsWith('http') ? file : `${process.env.NEXT_PUBLIC_IMAGE_URL || 'https://api.byggtipset.no/'}${file}`)
-                  : URL.createObjectURL(file);
+              {Array.isArray(value) && value?.map((fileObj: any, i: number) => {
+                // Handle both old format (string/File) and new format (object)
+                const isNewFormat = fileObj && typeof fileObj === 'object' && (fileObj.url || fileObj.file);
+
+                let fileName = "", fileUrl = "", isFileUploading = false, previewUrl = "";
+
+                if (isNewFormat) {
+                  fileName = fileObj.file?.name || fileObj.url?.split('/').pop() || 'Image';
+                  fileUrl = fileObj.url || (fileObj.file ? URL.createObjectURL(fileObj.file) : '');
+                  isFileUploading = fileObj.isUploading;
+                  previewUrl = fileObj.previewUrl;
+
+                  // For uploaded files, ensure we have the full URL
+                  if (fileObj.url && !fileObj.url.startsWith('http')) {
+                    fileUrl = `${process.env.NEXT_PUBLIC_IMAGE_URL || 'https://api.byggtipset.no/'}${fileObj.url}`;
+                  }
+                } else {
+                  const isString = typeof fileObj === "string";
+                  fileName = isString ? fileObj.split('/').pop() : fileObj.name;
+                  fileUrl = isString
+                    ? (fileObj.startsWith('http') ? fileObj : `${process.env.NEXT_PUBLIC_IMAGE_URL || 'https://api.byggtipset.no/'}${fileObj}`)
+                    : URL.createObjectURL(fileObj);
+                }
 
                 // Check if it's an image
-                const isImage = isString
-                  ? file.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i)
-                  : file.type.startsWith('image/');
+                const isImage = fileName?.match(/\.(jpg|jpeg|png|webp|gif|svg|heic|heif)$/i) ||
+                  (isNewFormat && fileObj.file?.type?.startsWith('image/'));
 
                 return (
-                  <div key={i} className="group relative rounded-lg border border-secondary/20 overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
-                    {isImage ? (
-                      <div className="aspect-square w-full">
+                  <div key={isNewFormat ? fileObj.id : i} className="group relative rounded-lg border border-secondary/20 overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                    {/* Sequence number badge */}
+                    <div className="absolute top-1 left-1 z-10 bg-primary text-white text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
+                      {i + 1}
+                    </div>
+
+                    {isFileUploading ? (
+                      // Loading skeleton for uploading files
+                      <div className="aspect-square w-full flex flex-col items-center justify-center p-2 bg-gray-100">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                        <span className="text-xs text-secondary/60 text-center">Laster opp...</span>
+                      </div>
+                    ) : isImage ? (
+                      <div className="aspect-square w-full relative">
                         <img
-                          src={fileUrl}
-                          alt={fileName}
+                          src={previewUrl || fileUrl}
+                          alt={`${fileName} (${i + 1})`}
                           className="h-full w-full object-cover"
-                          onLoad={() => !isString && URL.revokeObjectURL(fileUrl)}
+                          onLoad={() => {
+                            // Clean up object URL if it was created locally
+                            if (previewUrl && !fileObj.url) {
+                              URL.revokeObjectURL(previewUrl);
+                            }
+                          }}
                         />
+                        {/* File name overlay */}
+                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2">
+                          <span className="text-xs text-white truncate block">{fileName}</span>
+                        </div>
                       </div>
                     ) : (
                       <div className="aspect-square w-full flex flex-col items-center justify-center p-2 bg-gray-50">
@@ -1041,29 +1196,29 @@ const Form = ({
 
                     <button
                       type="button"
-                      aria-label="Remove file"
-                      className="absolute top-1 right-1 p-1 bg-white/90 hover:bg-red-50 text-secondary hover:text-danger rounded-full shadow-sm transition-colors cursor-pointer"
+                      aria-label={`Fjern bilde ${i + 1}`}
+                      className="absolute top-1 right-1 z-10 p-1 bg-white/90 hover:bg-red-50 text-secondary hover:text-danger rounded-full shadow-sm transition-colors cursor-pointer"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleRemoveFile(formIndex, field.name, file, field);
+                        handleRemoveFile(formIndex, field.name, fileObj, field);
                       }}
                     >
                       <RxCross2 size={14} />
                     </button>
-
-                    {/* Status overlay for local files (upload in progress/failed) */}
-                    {!isString && (
-                      <div className="absolute inset-x-0 bottom-0 bg-black/50 text-[8px] text-white text-center py-0.5">
-                        Local File
-                      </div>
-                    )}
                   </div>
                 );
               })}
 
-              {isUploading && (
-                <div className="rounded-lg border border-secondary/10 overflow-hidden bg-gray-50/50">
-                  <Skeleton className="aspect-square w-full" />
+              {/* Add more button if less than 3 images */}
+              {Array.isArray(value) && value.length < 3 && (
+                <div
+                  className="aspect-square w-full border-2 border-dashed border-secondary/30 rounded-lg flex flex-col items-center justify-center bg-transparent hover:bg-primary/5 transition-colors cursor-pointer"
+                  onClick={() => document.getElementById(`file-input-${formIndex}-${field.name}`)?.click()}
+                >
+                  <svg className="w-8 h-8 text-secondary/50 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="text-xs text-secondary/70 text-center">Legg til bilde {Array.isArray(value) ? value.length + 1 : 1}</span>
                 </div>
               )}
             </div>
@@ -1071,9 +1226,6 @@ const Form = ({
         </div>
       );
     }
-
-
-
 
     if (field.name === "address" && field.type === "text") {
       const addressFieldBase = {
@@ -1124,36 +1276,6 @@ const Form = ({
               }
               className="w-full"
             />
-            {/* <Input
-              type="text"
-              placeholder="Nr 1a"
-              labelPlacement="outside"
-              value={currentFormData?.values.additionalIdentifier || ""}
-              errorMessage={
-                currentFormData?.touched.additionalIdentifier && currentFormData?.errors.additionalIdentifier
-              }
-              onBlur={() =>
-                handleBlur(
-                  formIndex,
-                  "additionalIdentifier",
-                  currentFormData?.values.additionalIdentifier,
-                  {
-                    ...addressFieldBase,
-                    name: "additionalIdentifier",
-                    required: false,
-                    label: "Additional Identifier",
-                  }
-                )
-              }
-              onChange={(e) =>
-                handleChange(formIndex, "additionalIdentifier", e.target.value, {
-                  ...addressFieldBase,
-                  name: "additionalIdentifier",
-                  required: false,
-                  label: "Additional Identifier",
-                })
-              }
-            /> */}
             <Input
               type="text"
               inputMode="numeric"
@@ -1220,7 +1342,6 @@ const Form = ({
         let rawValue = String(value || "");
         if (rawValue.startsWith(countryCode)) {
           rawValue = rawValue
-            // .substring(countryCode.length)
             .trim()
             .replace(/[\s-]/g, "");
         } else {
@@ -1231,11 +1352,10 @@ const Form = ({
           <Input
             key={key}
             label={fieldProps.label}
-            // placeholder={"Enter 8 digits (e.g., 12345678)"}
             isRequired={fieldProps.required}
             labelPlacement={fieldProps.labelPlacement}
             startContent={<span
-              className="!text-sm !font-light mb-[3px]"
+              className="!text-sm !font-light mb-[1px]"
               style={{ fontWeight: 400, fontSize: '14px' }}
             >
               +47
@@ -1328,7 +1448,6 @@ const Form = ({
               popoverProps={{
                 placement: "bottom",
                 shouldFlip: false,
-
               }}
               onSelectionChange={(keys) => {
                 const selectedValue = Array.from(keys).join(",");
@@ -1338,8 +1457,6 @@ const Form = ({
             >
               {availableOptions?.map((opt: string, optIndex: number) => (
                 <SelectItem key={opt || `opt-${optIndex}`} textValue={opt} >
-                  {/* // <SelectItem key={opt || `opt-${optIndex}`} textValue={`${opt} ${optIndex}`}> */}
-
                   {opt}
                 </SelectItem>
               ))}
@@ -1353,7 +1470,6 @@ const Form = ({
           if (Array.isArray(value)) return value.includes(optionValue || "");
           return value === optionValue || !!value;
         };
-
 
         return (
           <div key={field._id || index} className="space-y-2">
@@ -1416,7 +1532,6 @@ const Form = ({
                 }}
               >
                 <p className="text-sm font-normal mt-0">{field.label}</p>
-                {/* {field.required ? " *" : ""} */}
               </Checkbox>
             )}
           </div>
@@ -1553,7 +1668,6 @@ const Form = ({
       <div className="w-full flex justify-center items-center text-center md:text-left bg-accent lg:bg-background h-full pb-18 lg:pt-18 lg:pb-16 px-4 md:px-6 lg:px-8">
         <div className="max-w-xl flex flex-col max-lg:flex-col-reverse">
           {/* Progress steps - only show if we have steps */}
-
           {steps.length > 0 && (
             <div className="flex gap-10 justify-center md:justify-start mb-4 max-lg:hidden">
               {steps?.map((_, i: number) => (
@@ -1567,14 +1681,9 @@ const Form = ({
           )}
 
           <h1 className="lg:text-5xl text-[32px] mb-0 lg:mb-6 font-semibold text-primary mt-6">
-            {/* {getLeftSideTitle()} */}
             {pageTitle}
           </h1>
           <p className="text-secondary text-sm">{pageDescription}</p>
-
-          {/* {getLeftSideDescription() && (
-            <p className="text-secondary text-sm">{getLeftSideDescription()}</p>
-          )} */}
 
           {/* Show multi-select info */}
           {isMultiSelectMode && selectedForms.length > 1 && (
@@ -1652,8 +1761,6 @@ const Form = ({
         ) : (
           // Initial state: Show form selection while first form loads in background
           <div className="rounded-xl shadow-md p-8 bg-background max-w-xl mx-auto">
-            {/* <h3 className="text-2xl font-semibold mb-6">Step 1</h3> */}
-
             <div className="flex flex-col gap-[55px] text-[16px] font-semibold min-h-[300px]">
               {formSelect.length > 1 && < FormSelectionField
                 formSelect={formSelect}
@@ -1661,7 +1768,6 @@ const Form = ({
                 onSelect={handleFormSelect}
                 isMultiSelectMode={isMultiSelectMode}
               />}
-
             </div>
 
             <div className="flex justify-between mt-8 gap-4">
@@ -1671,7 +1777,6 @@ const Form = ({
                 onPress={handleNext}
                 isDisabled={isFirstFormLoading || selectedForms.length === 0}
               >
-                {/* {isFirstFormLoading ? "Loading..." : "Next"} */}
                 Neste
               </Button>
             </div>
@@ -1694,20 +1799,34 @@ const Form = ({
 
       {isError && (
         <div
-          className={`mt-4 py-3 px-3.5 border rounded-md text-sm text-center fixed top-2 right-0 w-fit m-5 max-w-[400px]   !z-[999] shadow-2xl inset-shadow-sm bg-red-50 border-red-200 text-red-800
-            `}
+          className={`
+      fixed top-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] 
+      md:left-auto md:right-5 md:translate-x-0 md:w-fit md:max-w-[400px]
+      z-[9999] p-4 border rounded-lg shadow-2xl
+      bg-red-50 border-red-200 text-red-800
+      animate-in fade-in slide-in-from-top-4 duration-300 ov
+    `}
         >
+          {/* Close Button: Adjusted for better touch targets on mobile */}
           <button
-            className={`absolute -right-2 -top-2 p-1 rounded-full border cursor-pointer  bg-red-50 border-red-200`}
+            className="absolute -right-2 -top-2 p-1 w-fit h-fit rounded-full border cursor-pointer bg-white border-red-200 text-red-800 shadow-sm hover:bg-red-100 transition-colors aspect-square flex justify-center items-center"
             onClick={hideMessageBox}
+            aria-label="Lukk"
           >
-            <RxCross2 />
+            <RxCross2 size={16} />
           </button>
-          <div className="flex flex-row gap-2.5  items-center ">
-            <p className="hidden md:block">
-              <IoWarning className="text-red-800 w-6 h-6" />
-            </p>
-            <p className=" text-start  text-sm">{errorMessage} </p>
+
+          <div className="flex items-start md:items-center gap-3">
+            {/* Icon: Always visible but scaled for mobile */}
+            <div className="flex-shrink-0">
+              <IoWarning className="text-red-800 w-5 h-5 md:w-6 md:h-6" />
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              <p className="text-start text-sm leading-tight font-medium text-wrap break-words">
+                {errorMessage}
+              </p>
+            </div>
           </div>
         </div>
       )}

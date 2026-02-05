@@ -224,9 +224,7 @@ export async function POST(req: Request) {
 
       partnerArray = sortPartnersByPriority(partnerArray);
 
-      // partner filter : first which have max leads last month
       partnerArray.sort((a, b) => (b.leads?.lastMonth ?? 0) - (a.leads?.lastMonth ?? 0));
-      // console.log(`partnerArray after sorting:--- ${partnerArray}`)
 
       console.log("\nAfter sorting (in priority order):");
       partnerArray.forEach((p, i) => {
@@ -394,7 +392,6 @@ export async function POST(req: Request) {
       2
     );
 
-    // console.log("Comprehensive log created: ", logString);
     console.log(`Log size: ${logString.length} characters`);
     console.log(`Log structure: ${Object.keys(comprehensiveLog).join(", ")}`);
 
@@ -432,8 +429,6 @@ export async function POST(req: Request) {
 
     await User.findByIdAndUpdate(user._id, updateData);
 
-    // console.log("User record updated with initial data updateData: ", updateData);
-
     if (selectedPartners.length > 0) {
       console.log("\n========== UPDATING PARTNER LEADS COUNT ==========");
       await updatePartnerLeadsCount(selectedPartners);
@@ -462,7 +457,6 @@ export async function POST(req: Request) {
         user
       );
 
-      // Check if at least one email was sent successfully
       const sentCount = emailResults.filter((r) => r.status === "sent").length;
       const failedCount = emailResults.filter(
         (r) => r.status === "failed"
@@ -470,7 +464,6 @@ export async function POST(req: Request) {
 
       console.log(`Email results: ${sentCount} sent, ${failedCount} failed`);
 
-      // Update status based on email sending results
       if (sentCount > 0) {
         finalStatus = "Complete";
         console.log(
@@ -491,7 +484,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // Final update to user document with email results and final status
     await User.findByIdAndUpdate(
       user._id,
       {
@@ -591,14 +583,12 @@ function matchPostalCode(
   userPostalCode: string,
   partnerPostalCodes: any
 ): boolean {
-  // If user has no postal code, we can't match
   if (!userPostalCode || userPostalCode.trim() === "") {
     return false;
   }
 
   const userCode = userPostalCode.trim();
 
-  // If partner has no postal codes restriction, accept all
   if (
     !partnerPostalCodes ||
     (typeof partnerPostalCodes === "object" &&
@@ -606,13 +596,10 @@ function matchPostalCode(
   ) {
     return true;
   }
-
-  // Check if postalCodes is an object with exact/ranges properties
   if (typeof partnerPostalCodes !== "object" || partnerPostalCodes === null) {
     return false;
   }
 
-  // Check exact postal codes
   if (partnerPostalCodes.exact && Array.isArray(partnerPostalCodes.exact)) {
     for (const item of partnerPostalCodes.exact) {
       if (item && item.code === userCode) {
@@ -621,7 +608,6 @@ function matchPostalCode(
     }
   }
 
-  // Check postal code ranges
   if (partnerPostalCodes.ranges && Array.isArray(partnerPostalCodes.ranges)) {
     const userCodeNum = parseInt(userCode);
     if (!isNaN(userCodeNum)) {
@@ -645,9 +631,6 @@ function matchPostalCode(
   return false;
 }
 
-/**
- * STEP 2: Wish matching - Updated with selectedFormType handling
- */
 const isWishesMatch = (partner: any, userValues: any) => {
   const partnerWishes = partner.wishes || [];
   const normalize = (v: any) => {
@@ -656,7 +639,6 @@ const isWishesMatch = (partner: any, userValues: any) => {
     return String(v).trim().toLowerCase();
   };
 
-  // No wishes → auto match
   if (!partnerWishes.length) return true;
 
   for (const wish of partnerWishes) {
@@ -668,7 +650,6 @@ const isWishesMatch = (partner: any, userValues: any) => {
     const question = wish.question.trim();
     const expected = wish.expectedAnswer || [];
 
-    // Mapping
     const fieldMapping: any = {
       leadType: "selectedFormTitle",
       preferranceType: "selectedFormTitle",
@@ -676,7 +657,6 @@ const isWishesMatch = (partner: any, userValues: any) => {
 
     const field = fieldMapping[question] || question;
 
-    // USER DOES NOT HAVE FIELD → FAIL
     if (!userValues.hasOwnProperty(field)) {
       console.log(`Missing user field: ${field} → FAIL`);
       return false;
@@ -684,7 +664,6 @@ const isWishesMatch = (partner: any, userValues: any) => {
 
     const userAnswer = normalize(userValues[field] || "");
 
-    // EMPTY EXPECTEDANSWER → FAIL
     if (
       expected.length === 0 ||
       (expected.length === 1 && expected[0].trim() === "")
@@ -697,7 +676,6 @@ const isWishesMatch = (partner: any, userValues: any) => {
       (ans: any) => normalize(ans) === userAnswer
     );
 
-    // WRONG ANSWER → FAIL
     if (!isMatch) {
       console.log(`Value mismatch for ${question}`);
       console.log(`   user="${userAnswer}" expected="${expected}"`);
@@ -706,7 +684,6 @@ const isWishesMatch = (partner: any, userValues: any) => {
 
     console.log(`✔ Wish matched: ${question}`);
   }
-
   return true; // All wishes matched
 };
 
@@ -738,12 +715,10 @@ function isMonthlyLimitReached(partner: any): boolean {
  */
 function sortPartnersByPriority(partners: any[]): any[] {
   return partners.sort((a, b) => {
-    // 1. Premium partners first (true > false)
     if (a.isPremium !== b.isPremium) {
       return b.isPremium ? 1 : -1;
     }
 
-    // 2. Partners with higher last month leads
     const aLastMonthLeads = a.lastMonthLeads || a.leads?.lastMonth || 0;
     const bLastMonthLeads = b.lastMonthLeads || b.leads?.lastMonth || 0;
 
@@ -751,7 +726,6 @@ function sortPartnersByPriority(partners: any[]): any[] {
       return bLastMonthLeads - aLastMonthLeads;
     }
 
-    // 3. Older partners first (earlier createdAt)
     const aDate = new Date(a.createdAt).getTime();
     const bDate = new Date(b.createdAt).getTime();
 
@@ -986,7 +960,7 @@ async function sendMailToLead(
   };
 }
 
-// Generate email HTML
+
 function generatePartnerEmail(
   partner: any,
   userValues: any,
@@ -998,96 +972,402 @@ function generatePartnerEmail(
     return "<h1>New Lead Received</h1><p>Please check the system for details.</p>";
   }
 
+  if (user.dynamicFields && user.dynamicFields.length > 0) {
+  }
+
   let emailBody = activeTemplate.body;
 
-  console.log("Generating email with placeholders:");
-  console.log("Template body preview:", emailBody.substring(0, 200) + "...");
-  console.log("User values available:", userValues);
+  const partnerName = partner.name || partner.companyName || "Partner";
+  emailBody = emailBody.replace(/{partnerName}/g, partnerName);
+  emailBody = emailBody.replace(/\[Partner Name\]/g, partnerName);
 
-  const flatUserData: Record<string, any> = {
-    uniqueId: userUniqueId,
-    status: user.status,
-    profit: user.profit,
-    ip: user.ip,
-    createdAt: user.createdAt,
-    ...userValues,
-  };
+  const allFormData = getAllFormData(user.dynamicFields);
+  const allImages = getAllImages(user.dynamicFields);
+  const formDataHtml = generateFormDataHtml(allFormData);
+  const imagesHtml = generateImagesHtml(allImages);
+  const combinedHtml = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; color: rgb(22, 25, 37); line-height: 1.6; max-width: 700px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+    
+    <h2 style="color: rgb(22, 25, 37); border-bottom: 2px solid rgb(22, 25, 37); padding-bottom: 12px; margin-bottom: 25px; font-size: 24px; letter-spacing: -0.5px;">
+        Fullstendig Skjemadata
+    </h2>
+    
+    <div style="margin-bottom: 30px;">
+        ${formDataHtml}
+    </div>
+    
+    <h2 style="color: rgb(22, 25, 37); border-bottom: 2px solid #eef0f2; padding-bottom: 12px; margin-top: 40px; margin-bottom: 20px; font-size: 20px;">
+        Vedlagte Bilder <span style="color: #888; font-weight: normal; font-size: 16px;">(${allImages.length})</span>
+    </h2>
+    
+    <div style="text-align: left; font-size: 0; margin-bottom: 10px;">
+        ${imagesHtml}
+    </div>   
+    <div style="margin-top: 10px; padding: 10px; background-color: #f4f5f7; border-radius: 12px; border: 1px solid #eef0f2;">
+        <p style="margin: 0; color: #555; font-size: 13px; text-align: center;">
+            <strong style="color: rgb(22, 25, 37);">Lead ID:</strong> ${userUniqueId} 
+            <span style="margin: 0 10px; color: #ccc;">|</span>
+            <strong style="color: rgb(22, 25, 37);">Dato:</strong> ${new Date().toLocaleDateString("no-NO")}
+        </p>
+    </div>
+</div>
+  `;
 
-  const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_URL ?? "";
-  let leadImage = "";
-  Object.entries(userValues).forEach(([_, value]) => {
-    const checkImage = (v: any) => {
-      if (typeof v === "string" && (v.match(/\.(jpg|jpeg|png|webp|gif|svg)$|uploads\//i) || v.startsWith("uploads/"))) {
-        const fullUrl = v.startsWith("http") ? v : `${imageBaseUrl}${v}`;
-        leadImage += `<img src="${fullUrl}" style="max-width: 200px; margin: 10px; border-radius: 4px; display: inline-block;" alt="Lead Image">`;
-      }
-    };
-
-    if (Array.isArray(value)) {
-      value.forEach(checkImage);
-    } else {
-      checkImage(value);
+  function extractFieldValue(dynamicFields: any[], fieldName: string): string {
+    if (!dynamicFields) {
+      return "";
     }
-  });
 
-  // dynamic maping
-  const placeholders = emailBody.match(/\{[^{}]+\}|\[[^[\]]+\]/g) || [];
+    for (const form of dynamicFields) {
+      if (form.values && form.values[fieldName] !== undefined) {
+        const value = form.values[fieldName];
+        if (Array.isArray(value)) {
+          return value.join(", ");
+        }
+        if (value === true) return "Ja";
+        if (value === false) return "Nei";
+        if (value === null || value === undefined) return "Ikke oppgitt";
+        return String(value);
+      }
+      const lowerFieldName = fieldName.toLowerCase();
+      for (const key in form.values || {}) {
+        if (key.toLowerCase() === lowerFieldName) {
+          const value = form.values[key];
 
-  const resolvedMappings: Record<string, string> = {
-    "{partnerName}": partner.name || partner.companyName || "Partner",
-    "{currentDate}": new Date().toLocaleDateString("no-NO"),
-    "{leadImage}": leadImage || "Ingen bilder opplastet",
-  };
-
-  placeholders.forEach((placeholder: any) => {
-    if (resolvedMappings[placeholder]) return;
-
-    const cleanKey = placeholder
-      .replace(/[{}[\]]/g, "")
-      .trim()
-      .replace(/^(user|lead)/i, "")
-      .toLowerCase();
-
-    const match = Object.entries(flatUserData).find(([key]) => {
-      const normalizedKey = key.toLowerCase();
-      return normalizedKey === cleanKey || normalizedKey.replace(/[^a-z0-9]/g, "") === cleanKey.replace(/[^a-z0-9]/g, "");
-    });
-
-    if (match) {
-      const [_, value] = match;
-      if (Array.isArray(value)) {
-        resolvedMappings[placeholder] = value.join(", ");
-      } else if (value !== null && value !== undefined) {
-        resolvedMappings[placeholder] = String(value);
+          if (Array.isArray(value)) {
+            return value.join(", ");
+          }
+          if (value === true) return "Ja";
+          if (value === false) return "Nei";
+          if (value === null || value === undefined) return "Ikke oppgitt";
+          return String(value);
+        }
       }
     }
-  });
 
-  const legacyOverrides: Record<string, string> = {
+    return "";
+  }
+
+  const addressPlaceholders = {
+    "{streetName}": extractFieldValue(user.dynamicFields, "streetName"),
+    "{postalCode}": extractFieldValue(user.dynamicFields, "postalCode"),
+    "{address}": `${extractFieldValue(user.dynamicFields, "streetName")} ${extractFieldValue(user.dynamicFields, "postalCode")}`.trim(),
+    "[adress_lead]": extractFieldValue(user.dynamicFields, "streetName"),
+    "[Full address]": `${extractFieldValue(user.dynamicFields, "streetName")}, ${extractFieldValue(user.dynamicFields, "postalCode")}`,
+    "[Full name]": extractFieldValue(user.dynamicFields, "name"),
+    "[Full number]": extractFieldValue(user.dynamicFields, "phone"),
+    "[Full email]": extractFieldValue(user.dynamicFields, "email"),
+    "[EMAIL]": extractFieldValue(user.dynamicFields, "email"),
     "[Id]": String(userUniqueId),
-    "[Full name]": userValues.name || "N/A",
-    "[Full number]": userValues.phone || "N/A",
-    "[Full email]": userValues.email || "N/A",
-    "[adress_lead]": userValues.streetName || userValues.address || "N/A",
-    "[Type of lead]": userValues.selectedFormTitle || userValues.preferranceType || "N/A",
-    "[EMAIL]": userValues.email || "N/A",
   };
-  Object.assign(resolvedMappings, legacyOverrides);
 
-  Object.entries(resolvedMappings).forEach(([placeholder, value]) => {
-    const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
-    emailBody = emailBody.replace(regex, value);
+  Object.entries(addressPlaceholders).forEach(([placeholder, value]) => {
+    if (emailBody.includes(placeholder)) {
+      const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      emailBody = emailBody.replace(regex, value || "N/A");
+    }
   });
 
-  emailBody = emailBody.replace(/\{[a-zA-Z0-9_\sæøåÆØÅ]+\}/g, "N/A");
-  emailBody = emailBody.replace(/\[[a-zA-Z0-9_\sæøåÆØÅ]+\]/g, "N/A");
+  const mainPlaceholders = {
+    "{allFormData}": combinedHtml,
+    "{comprehensiveData}": combinedHtml,
+    "{leadDetails}": combinedHtml,
+    "{formDataAndImages}": combinedHtml,
+    "{dynamicFieldsData}": combinedHtml,
+    "{fullData}": combinedHtml,
+    "[All Data]": combinedHtml,
+    "[Form Data]": combinedHtml,
+    "[Complete Data]": combinedHtml,
+  };
 
+  let foundMainPlaceholder = false;
+  Object.entries(mainPlaceholders).forEach(([placeholder, htmlContent]) => {
+    if (emailBody.includes(placeholder)) {
+      emailBody = emailBody.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), htmlContent);
+      foundMainPlaceholder = true;
+    }
+  });
+  if (!foundMainPlaceholder) {
+    emailBody += combinedHtml;
+  }
   return emailBody;
 }
 
-/**
- * GET endpoint for testing
- */
+function getAllFormData(dynamicFields: any[]): Array<{ formTitle: string, fields: Array<{ name: string, value: any }> }> {
+  const allData: any = [];
+
+  if (!dynamicFields || dynamicFields.length === 0) {
+    return allData;
+  }
+  dynamicFields.forEach((form, formIndex) => {
+    const formData = {
+      formTitle: form.formTitle || "Skjema",
+      fields: [] as Array<{ name: string, value: any }>
+    };
+
+    if (form.values) {
+      Object.entries(form.values).forEach(([fieldName, fieldValue]) => {
+        if (fieldName.toLowerCase().includes('formid') ||
+          fieldName.toLowerCase().includes('selectedformtype') ||
+          fieldName === '_id' ||
+          fieldName === 'id' ||
+          fieldName.toLowerCase().includes('previewurl') ||
+          fieldName.toLowerCase().includes('uploading') ||
+          fieldName.toLowerCase().includes('isselected')) {
+          return;
+        }
+
+        const isImageField = fieldName.toLowerCase().includes("bilder") ||
+          fieldName.toLowerCase().includes("image") ||
+          fieldName.toLowerCase().includes("file") ||
+          fieldName.toLowerCase().includes("photo") ||
+          fieldName.toLowerCase().includes("picture") ||
+          fieldName.toLowerCase().includes("upload") ||
+          fieldName.toLowerCase().includes("mb");
+        if (isImageField) {
+          return;
+        }
+        formData.fields.push({
+          name: fieldName,
+          value: fieldValue
+        });
+      });
+    }
+
+    if (formData.fields.length > 0) {
+      allData.push(formData);
+    }
+
+  });
+
+  return allData;
+}
+
+function getAllImages(dynamicFields: any[]): Array<{ url: string, fileName: string }> {
+  const allImages: any = [];
+  const imageBaseUrl = (process.env.NEXT_PUBLIC_IMAGE_URL ?? "https://api.byggtipset.no").replace(/\/$/, '');
+
+  if (!dynamicFields) {
+    return allImages;
+  }
+  dynamicFields.forEach((form, formIndex) => {
+    if (!form.values) {
+      return;
+    }
+
+    Object.entries(form.values).forEach(([fieldName, fieldValue]) => {
+
+      const isImageField = fieldName.toLowerCase().includes("bilder") ||
+        fieldName.toLowerCase().includes("image") ||
+        fieldName.toLowerCase().includes("file") ||
+        fieldName.toLowerCase().includes("photo") ||
+        fieldName.toLowerCase().includes("picture") ||
+        fieldName.toLowerCase().includes("upload") ||
+        fieldName.toLowerCase().includes("mb"); // For "Maks 3 bilder à 2 MB"
+
+      if (isImageField && fieldValue) {
+        if (Array.isArray(fieldValue)) {
+          fieldValue.forEach((item, itemIndex) => {
+
+            if (typeof item === 'string') {
+              let imageUrl = item;
+
+              if (!imageUrl.startsWith('http')) {
+                imageUrl = imageUrl.replace(/^\//, '');
+                const fullUrl = `${imageBaseUrl}/${imageUrl}`;
+                const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+
+                allImages.push({
+                  url: fullUrl,
+                  fileName: fileName
+                });
+              } else {
+                const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+                allImages.push({
+                  url: imageUrl,
+                  fileName: fileName
+                });
+              }
+            } else if (item && typeof item === 'object' && item.url) {
+              let imageUrl = item.url;
+
+              if (!imageUrl.startsWith('http')) {
+                imageUrl = imageUrl.replace(/^\//, '');
+                const fullUrl = `${imageBaseUrl}/${imageUrl}`;
+                const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+                allImages.push({
+                  url: fullUrl,
+                  fileName: fileName
+                });
+              } else {
+                const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+                allImages.push({
+                  url: imageUrl,
+                  fileName: fileName
+                });
+              }
+            }
+          });
+        } else if (typeof fieldValue === 'string') {
+          let imageUrl = fieldValue;
+
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = imageUrl.replace(/^\//, '');
+            const fullUrl = `${imageBaseUrl}/${imageUrl}`;
+            const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+
+            allImages.push({
+              url: fullUrl,
+              fileName: fileName
+            });
+          } else {
+            const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+            allImages.push({
+              url: imageUrl,
+              fileName: fileName
+            });
+          }
+        } else if (fieldValue && typeof fieldValue === 'object' && (fieldValue as any).url) {
+          let imageUrl = (fieldValue as any).url;
+
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = imageUrl.replace(/^\//, '');
+            const fullUrl = `${imageBaseUrl}/${imageUrl}`;
+            const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+            allImages.push({
+              url: fullUrl,
+              fileName: fileName
+            });
+          } else {
+            const fileName = imageUrl.split('/').pop() || `Bilde ${allImages.length + 1}`;
+            allImages.push({
+              url: imageUrl,
+              fileName: fileName
+            });
+          }
+        }
+      }
+    });
+  });
+  return allImages;
+}
+
+function generateFormDataHtml(allFormData: Array<{ formTitle: string, fields: Array<{ name: string, value: any }> }>): string {
+  if (allFormData.length === 0) {
+    return `<p style="color: #999; font-style: italic; padding: 20px; text-align: center;">Ingen skjemadata tilgjengelig.</p>`;
+  }
+  let html = '';
+
+  allFormData.forEach((form, formIndex) => {
+    html += `
+      <div style="margin-bottom: 25px; padding: 0;">
+        <h3 style="color: rgb(22, 25, 37); background-color: #f4f5f7; padding: 14px 18px; border-radius: 8px; border-left: 5px solid rgb(22, 25, 37); margin: 0 0 15px 0; font-size: 16px; font-weight: 700; font-family: 'Segoe UI', Arial, sans-serif;">
+    ${form.formTitle}
+</h3>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+    `;
+
+    const filteredFields = form.fields.filter(field =>
+      !field.name.toLowerCase().includes('selectedformtitle')
+    );
+
+    filteredFields.forEach((field, fieldIndex) => {
+      let displayValue = '';
+      if (Array.isArray(field.value)) {
+        displayValue = field.value.map(item => {
+          if (item === true) return "Ja";
+          if (item === false) return "Nei";
+          if (item === null || item === undefined) return "";
+          return String(item);
+        }).filter(Boolean).join(', ');
+      } else if (field.value === true) {
+        displayValue = "Ja";
+      } else if (field.value === false) {
+        displayValue = "Nei";
+      } else if (field.value === null || field.value === undefined) {
+        displayValue = "Ikke oppgitt";
+      } else {
+        displayValue = String(field.value);
+      }
+      const cleanFieldName = field.name
+        .replace(/[_-]/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase())
+        .replace(/  +/g, ' ')
+        .trim();
+
+      const rowColor = fieldIndex % 2 === 0 ? '#ffffff' : '#f9f9f9';
+
+      html += `
+       <tr style="background-color: ${rowColor};">
+  <td style="padding: 12px 15px; border-bottom: 1px solid #eef0f2; font-weight: 700; color: rgb(22, 25, 37); width: 35%; vertical-align: top; font-size: 13px;">
+    ${cleanFieldName}
+  </td>
+  <td style="padding: 12px 15px; border-bottom: 1px solid #eef0f2; color: #444; width: 65%; vertical-align: top; font-size: 14px; line-height: 1.5;">
+    ${displayValue || '<span style="color: #999; font-style: italic;">Ikke oppgitt</span>'}
+  </td>
+</tr>
+      `;
+    });
+
+    html += `
+        </table>
+      </div>
+    `;
+  });
+
+  return html;
+}
+
+function generateImagesHtml(allImages: Array<{ url: string, fileName: string }>): string {
+  if (allImages.length === 0) {
+    return `
+      <div style="padding: 20px; background-color: #f8f8f8; border-radius: 8px; text-align: center; border: 1px dashed #ccc;">
+        <p style="color: #999; margin: 0; font-style: italic;">
+          Ingen bilder ble lastet opp.
+        </p>
+      </div>
+    `;
+  }
+
+  let html = `
+    <div style="margin: 0;">
+    <p style="color: rgb(22, 25, 37); margin: 25px 0 15px 0; font-size: 15px; font-weight: 700; font-family: Arial, sans-serif; display: flex; align-items: center;">
+  <span style="display: inline-block; width: 4px; height: 18px; background-color: rgb(22, 25, 37); margin-right: 10px; border-radius: 2px;"></span>
+  ${allImages.length} bilde(r) lastet opp:
+</p>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-top: 10px;">
+  `;
+
+  allImages.forEach((image, index) => {
+    html += `
+      <div style="display: inline-block; width: 180px; margin: 0 12px 20px 0; vertical-align: top; border: 1px solid #eef0f2; border-radius: 8px; overflow: hidden; background-color: #ffffff; font-family: Arial, sans-serif;">
+  <a href="${image.url}" target="_blank" style="text-decoration: none; display: block;">
+    
+    <div style="background-color: #f4f5f7; width: 100%; height: 150px; overflow: hidden;">
+      <img 
+        src="${image.url}" 
+        style="width: 100%; height: 150px; object-fit: cover; display: block; border: 0;"
+        alt="${image.fileName}"
+      >
+    </div>
+
+    <div style="padding: 10px; background-color: #ffffff; border-top: 1px solid #eef0f2; text-align: center;">
+      <div style="color: rgb(22, 25, 37); font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px;">
+        ${image.fileName}
+      </div>
+      <div style="color: #999; font-size: 10px; font-weight: normal;">
+        Bilde ${index + 1} av ${allImages.length}
+      </div>
+    </div>
+
+  </a>
+</div>
+    `;
+  });
+  html += ``;
+  return html;
+}
+
 export async function GET() {
   return NextResponse.json({
     message: "Lead processing API is running",
