@@ -1071,7 +1071,8 @@ const Form = ({
             type="file"
             id={fileInputId}
             className="hidden"
-            multiple={field.options?.includes("multiple")}
+            // multiple={field.options?.includes("multiple")}
+            multiple={true}
             accept={field.accept || ".png,.heic,.heif,.jpg,.jpeg"}
             onChange={(e) => {
               handleFileChange(formIndex, field.name, e.target.files, field);
