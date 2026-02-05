@@ -183,8 +183,7 @@ export async function POST(req: Request) {
       limitCheckLog.push(logEntry);
 
       console.log(
-        `  ${partner.name}: ${
-          limitReached ? "LIMIT REACHED" : "LIMIT AVAILABLE"
+        `  ${partner.name}: ${limitReached ? "LIMIT REACHED" : "LIMIT AVAILABLE"
         }`
       );
       if (!limitReached) {
@@ -218,8 +217,7 @@ export async function POST(req: Request) {
         sortingLog.push(logEntry);
 
         console.log(
-          `  ${p.name}: Premium=${p.isPremium}, LastMonthLeads=${
-            p.lastMonthLeads || 0
+          `  ${p.name}: Premium=${p.isPremium}, LastMonthLeads=${p.lastMonthLeads || 0
           }, Created=${new Date(p.createdAt).toLocaleDateString()}`
         );
       });
@@ -233,8 +231,7 @@ export async function POST(req: Request) {
       console.log("\nAfter sorting (in priority order):");
       partnerArray.forEach((p, i) => {
         console.log(
-          `  ${i + 1}. ${p.name}: Premium=${p.isPremium}, LastMonthLeads=${
-            p.lastMonthLeads || 0
+          `  ${i + 1}. ${p.name}: Premium=${p.isPremium}, LastMonthLeads=${p.lastMonthLeads || 0
           }, Created=${new Date(p.createdAt).toLocaleDateString()}`
         );
       });
@@ -461,7 +458,8 @@ export async function POST(req: Request) {
         selectedPartners,
         userValues,
         partnerEmailsData,
-        userUniqueId
+        userUniqueId,
+        user
       );
 
       // Check if at least one email was sent successfully
@@ -796,7 +794,8 @@ async function sendMailToPartners(
   partners: any[],
   userValues: any,
   partnerEmailsData: any[],
-  userUniqueId: number
+  userUniqueId: number,
+  user: any
 ) {
   if (!partners.length) {
     return partnerEmailsData;
@@ -839,7 +838,8 @@ async function sendMailToPartners(
           partner,
           userValues,
           activeTemplate,
-          userUniqueId
+          userUniqueId,
+          user
         );
 
         const mailOptions = {
@@ -849,12 +849,12 @@ async function sendMailToPartners(
           html: html,
           replyTo: userValues.email || smtpData.user,
         };
- await transporter.sendMail({
-    from: `"Byggtipset" <${smtpData.user}>`,
-    to: "lead@tipsetas.no",
-    subject: "Order Confirmation",
-    html,
-  });
+        await transporter.sendMail({
+          from: `"Byggtipset" <${smtpData.user}>`,
+          to: "lead@tipsetas.no",
+          subject: "Order Confirmation",
+          html,
+        });
         const info = await transporter.sendMail(mailOptions);
 
         results.push({
@@ -991,7 +991,8 @@ function generatePartnerEmail(
   partner: any,
   userValues: any,
   activeTemplate: any,
-  userUniqueId: number
+  userUniqueId: number,
+  user: any
 ) {
   if (!activeTemplate || !activeTemplate.body) {
     return "<h1>New Lead Received</h1><p>Please check the system for details.</p>";
@@ -1003,72 +1004,83 @@ function generatePartnerEmail(
   console.log("Template body preview:", emailBody.substring(0, 200) + "...");
   console.log("User values available:", userValues);
 
-  emailBody = emailBody.replace(
-    /{partnerName}/g,
-    partner.name || partner.companyName || "Partner"
-  );
+  const flatUserData: Record<string, any> = {
+    uniqueId: userUniqueId,
+    status: user.status,
+    profit: user.profit,
+    ip: user.ip,
+    createdAt: user.createdAt,
+    ...userValues,
+  };
 
-  const placeholderMappings: Record<string, string> = {
-    "[Id]": String(userUniqueId) || "N/A",
+  const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_URL ?? "";
+  let leadImage = "";
+  Object.entries(userValues).forEach(([_, value]) => {
+    const checkImage = (v: any) => {
+      if (typeof v === "string" && (v.match(/\.(jpg|jpeg|png|webp|gif|svg)$|uploads\//i) || v.startsWith("uploads/"))) {
+        const fullUrl = v.startsWith("http") ? v : `${imageBaseUrl}${v}`;
+        leadImage += `<img src="${fullUrl}" style="max-width: 200px; margin: 10px; border-radius: 4px; display: inline-block;" alt="Lead Image">`;
+      }
+    };
+
+    if (Array.isArray(value)) {
+      value.forEach(checkImage);
+    } else {
+      checkImage(value);
+    }
+  });
+
+  // dynamic maping
+  const placeholders = emailBody.match(/\{[^{}]+\}|\[[^[\]]+\]/g) || [];
+
+  const resolvedMappings: Record<string, string> = {
+    "{partnerName}": partner.name || partner.companyName || "Partner",
+    "{currentDate}": new Date().toLocaleDateString("no-NO"),
+    "{leadImage}": leadImage || "Ingen bilder opplastet",
+  };
+
+  placeholders.forEach((placeholder: any) => {
+    if (resolvedMappings[placeholder]) return;
+
+    const cleanKey = placeholder
+      .replace(/[{}[\]]/g, "")
+      .trim()
+      .replace(/^(user|lead)/i, "")
+      .toLowerCase();
+
+    const match = Object.entries(flatUserData).find(([key]) => {
+      const normalizedKey = key.toLowerCase();
+      return normalizedKey === cleanKey || normalizedKey.replace(/[^a-z0-9]/g, "") === cleanKey.replace(/[^a-z0-9]/g, "");
+    });
+
+    if (match) {
+      const [_, value] = match;
+      if (Array.isArray(value)) {
+        resolvedMappings[placeholder] = value.join(", ");
+      } else if (value !== null && value !== undefined) {
+        resolvedMappings[placeholder] = String(value);
+      }
+    }
+  });
+
+  const legacyOverrides: Record<string, string> = {
+    "[Id]": String(userUniqueId),
     "[Full name]": userValues.name || "N/A",
     "[Full number]": userValues.phone || "N/A",
     "[Full email]": userValues.email || "N/A",
     "[adress_lead]": userValues.streetName || userValues.address || "N/A",
-    "[Type of lead]":
-      userValues.selectedFormTitle || userValues.preferranceType || "N/A",
+    "[Type of lead]": userValues.selectedFormTitle || userValues.preferranceType || "N/A",
     "[EMAIL]": userValues.email || "N/A",
-    /// for addition work
-    "{userName}": userValues.name || "N/A",
-    "{userPhone}": userValues.phone || "N/A",
-    "{userEmail}": userValues.email || "N/A",
-    "{userAddress}": userValues.streetName || userValues.address || "",
-    "{userAccommodationType}": userValues.accommodationType || "N/A",
-    "{userPostalCode}": userValues.postalCode || "N/A",
-    "{userRoomCount}": userValues.roomCount || "N/A",
-    "{userHomeSize}": userValues.homeSize || "N/A",
-    "{userStreetName}": userValues.streetName || "N/A",
-    "{userAdditionalIdentifier}": userValues.additionalIdentifier || "N/A",
-    "{userRoomCondition}": userValues.roomCondition || "N/A",
-    "{userSellingDate}": userValues.sellingDate || "N/A",
-    "{userDetails}": userValues.details || "N/A",
-    "{userSelectedFormTitle}": userValues.selectedFormTitle || "N/A",
-    "{userPreferranceType}":
-      userValues.preferranceType || userValues.selectedFormTitle || "N/A",
-    "{currentDate}": new Date().toLocaleDateString("no-NO"),
   };
+  Object.assign(resolvedMappings, legacyOverrides);
 
-  const foundPlaceholders: string[] = [];
-  Object.keys(placeholderMappings).forEach((placeholder) => {
-    if (emailBody.includes(placeholder)) {
-      foundPlaceholders.push(placeholder);
-    }
+  Object.entries(resolvedMappings).forEach(([placeholder, value]) => {
+    const regex = new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g");
+    emailBody = emailBody.replace(regex, value);
   });
 
-  console.log("Found placeholders in template:", foundPlaceholders);
-
-  Object.entries(placeholderMappings).forEach(([placeholder, value]) => {
-    if (emailBody.includes(placeholder)) {
-      console.log(`Replacing ${placeholder} with: ${value}`);
-      const regex = new RegExp(
-        placeholder.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-        "g"
-      );
-      emailBody = emailBody.replace(regex, value);
-    }
-  });
-
-  const remainingSquareBrackets = emailBody.match(/\[.*?\]/g) || [];
-  const remainingCurlyBraces = emailBody.match(/\{.*?\}/g) || [];
-
-  if (remainingSquareBrackets.length > 0) {
-    console.warn(
-      "Unreplaced square bracket placeholders:",
-      remainingSquareBrackets
-    );
-  }
-  if (remainingCurlyBraces.length > 0) {
-    console.warn("Unreplaced curly brace placeholders:", remainingCurlyBraces);
-  }
+  emailBody = emailBody.replace(/\{[a-zA-Z0-9_\sæøåÆØÅ]+\}/g, "N/A");
+  emailBody = emailBody.replace(/\[[a-zA-Z0-9_\sæøåÆØÅ]+\]/g, "N/A");
 
   return emailBody;
 }

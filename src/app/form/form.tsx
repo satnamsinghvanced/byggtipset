@@ -11,6 +11,7 @@ import {
   Input,
   Select,
   SelectItem,
+  Skeleton,
   Textarea
 } from "@heroui/react";
 import { useCallback, useEffect, useState } from "react";
@@ -240,7 +241,8 @@ const Form = ({
   const [isFirstFormLoading, setIsFirstFormLoading] = useState<boolean>(false);
   const [isMultiSelectMode] = useState<boolean>(isMultiSelect);
   const [isError, setIsError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<any>(false);
+  const [uploadingFields, setUploadingFields] = useState<Record<string, boolean>>({});
 
   const hideMessageBox = () => {
     setIsError(false);
@@ -713,22 +715,97 @@ const Form = ({
     }
 
     const fileArray = Array.from(files);
+    const fieldKey = `${formIndex}-${fieldName}`;
 
     // Upload images to API and get URLs
     try {
+      setUploadingFields((prev) => ({ ...prev, [fieldKey]: true }));
       const uploadResponses = await uploadImages(fileArray);
       // Extract file URLs from responses
       const fileUrls = uploadResponses.map((response) => response.fileUrl);
       // Save the URLs in the field
-      handleChange(formIndex, fieldName, fileUrls, field);
+      if (field.options?.includes("multiple")) {
+        setSelectedForms((prev) =>
+          prev.map((form, i) => {
+            if (i !== formIndex) return form;
+            const currentValues = Array.isArray(form.values[fieldName]) ? form.values[fieldName] : [];
+            const newValues = [...currentValues, ...fileUrls];
+
+            // Re-validate after change
+            const error = validateField(fieldName, newValues, field, formIndex);
+            return {
+              ...form,
+              values: { ...form.values, [fieldName]: newValues },
+              errors: error
+                ? { ...form.errors, [fieldName]: error }
+                : Object.fromEntries(Object.entries(form.errors).filter(([k]) => k !== fieldName)),
+              touched: { ...form.touched, [fieldName]: true }
+            };
+          })
+        );
+      } else {
+        handleChange(formIndex, fieldName, fileUrls, field);
+      }
     } catch (error) {
       console.error("Failed to upload images:", error);
-      // Show error to user - you can add toast notification here if needed
       setIsError(true);
       setErrorMessage(true);
       // Optionally, still save the files locally for reference
-      handleChange(formIndex, fieldName, fileArray, field);
+      if (field.options?.includes("multiple")) {
+        setSelectedForms((prev) =>
+          prev.map((form, i) => {
+            if (i !== formIndex) return form;
+            const currentValues = Array.isArray(form.values[fieldName]) ? form.values[fieldName] : [];
+            return {
+              ...form,
+              values: { ...form.values, [fieldName]: [...currentValues, ...fileArray] }
+            };
+          })
+        );
+      } else {
+        handleChange(formIndex, fieldName, fileArray, field);
+      }
+    } finally {
+      setUploadingFields((prev) => {
+        const newState = { ...prev };
+        delete newState[fieldKey];
+        return newState;
+      });
     }
+  };
+
+  const handleRemoveFile = (
+    formIndex: number,
+    fieldName: string,
+    fileToRemove: string | File,
+    field: FormField
+  ) => {
+    setSelectedForms((prev) =>
+      prev.map((form, i) => {
+        if (i !== formIndex) return form;
+
+        const currentValues = form.values[fieldName];
+        if (!Array.isArray(currentValues)) return form;
+
+        const newValues = currentValues.filter((v) => v !== fileToRemove);
+        const newFormValues = { ...form.values, [fieldName]: newValues };
+
+        // Re-validate after removal
+        const error = validateField(fieldName, newValues, field, formIndex);
+        const newErrors = error
+          ? { ...form.errors, [fieldName]: error }
+          : Object.fromEntries(
+            Object.entries(form.errors).filter(([key]) => key !== fieldName)
+          );
+
+        return {
+          ...form,
+          values: newFormValues,
+          errors: newErrors,
+          touched: { ...form.touched, [fieldName]: true },
+        };
+      })
+    );
   };
 
   const renderField = (field: FormField, index: number, formIndex: number) => {
@@ -805,6 +882,8 @@ const Form = ({
 
     if (field.type === "file") {
       const fileInputId = `file-input-${formIndex}-${field.name}`;
+      const fieldKey = `${formIndex}-${field.name}`;
+      const isUploading = uploadingFields[fieldKey];
 
       const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
@@ -877,43 +956,46 @@ const Form = ({
             accept={field.accept || ".png,.heic,.heif,.jpg,.jpeg"}
             onChange={(e) => {
               handleFileChange(formIndex, field.name, e.target.files, field);
+              e.target.value = "";
             }}
             onBlur={() => handleBlur(formIndex, field.name, value, field)}
           />
 
           {/* Visible drag and drop area */}
-          <div
-            className="flex flex-col items-center justify-center w-full h-34 border-2 border-dashed border-secondary/30 rounded-lg cursor-pointer bg-transparent transition-colors mt-2"
-            onClick={handleLabelClick}
-            onDragOver={handleDragOver}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            {/* Upload icon */}
-            <div className="w-12 h-12 mb-2">
-              <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect width="48" height="48" rx="24" fill="#E6F1FE" />
-                <path d="M26.4106 16.2322V22.4447C26.4106 22.6722 26.2269 22.8559 26.0081 22.8559H22.0006C21.7731 22.8559 21.5894 22.6722 21.5894 22.4447V16.2322C21.5894 16.1009 21.4844 15.9872 21.3444 15.9872H20.4869C19.9444 15.9872 19.6556 15.3397 20.0231 14.9372L23.5406 11.0784C23.7944 10.8072 24.2231 10.8072 24.4681 11.0784L27.9769 14.9372C28.3444 15.3397 28.0556 15.9872 27.5131 15.9872H26.6556C26.5244 15.9872 26.4106 16.0922 26.4106 16.2322Z" fill="#006FEE" />
-                <path d="M17.1838 15.3659H18.9814C18.9903 16.1351 19.5972 16.8622 20.4869 16.8622H20.7144V17.1159H17.1838C15.635 17.1159 14.375 18.3759 14.375 19.9246V28.9634C14.375 30.5121 15.635 31.7722 17.1838 31.7722H20.115C20.3338 31.7722 20.5438 31.8772 20.6663 32.0522C21.4363 33.1547 22.7138 33.8809 24.1663 33.8809C25.6188 33.8809 26.8963 33.1547 27.6663 32.0522C27.7888 31.8772 27.9988 31.7722 28.2175 31.7722H31.1488C32.6965 31.7722 33.9558 30.5138 33.9575 28.9665V19.9246C33.94 18.3759 32.6888 17.1159 31.1313 17.1159H27.2856V16.8622H27.5131C28.4028 16.8622 29.0098 16.1351 29.0186 15.3659H31.1313C33.6625 15.3659 35.6792 17.4124 35.7074 19.9049L35.7075 19.9148V32.5158C35.7075 35.0318 33.6627 37.0746 31.1475 37.0746H17.185C14.6698 37.0746 12.625 35.0318 12.625 32.5158V19.9246C12.625 17.4094 14.6685 15.3659 17.1838 15.3659Z" fill="#006FEE" />
-                <path d="M18.785 19.3472H20.7144V20.2222H18.785C18.0783 20.2222 17.4988 20.8017 17.4988 21.5084V27.4672C17.4988 28.1739 18.0783 28.7534 18.785 28.7534H21.48C22.2239 28.7534 22.8117 29.2715 22.983 29.9329C23.1224 30.4624 23.5985 30.8447 24.1575 30.8447C24.7228 30.8447 25.1997 30.457 25.3304 29.9393L25.3313 29.9355C25.5017 29.2729 26.0902 28.7534 26.835 28.7534H29.53C30.2368 28.7534 30.8163 28.1739 30.8163 27.4672V21.5084C30.8163 20.7994 30.2432 20.2222 29.53 20.2222H27.2856V19.3472H29.53C30.7288 19.3472 31.6913 20.3184 31.6913 21.5084V27.4672C31.6913 28.6572 30.72 29.6284 29.53 29.6284H26.835C26.52 29.6284 26.2575 29.8472 26.1788 30.1534C25.9513 31.0547 25.1288 31.7197 24.1575 31.7197C23.1863 31.7197 22.3725 31.0547 22.1363 30.1534C22.0575 29.8472 21.795 29.6284 21.48 29.6284H18.785C17.595 29.6284 16.6238 28.6572 16.6238 27.4672V21.5084C16.6238 20.3184 17.595 19.3472 18.785 19.3472Z" fill="#006FEE" />
-              </svg>
+          {(!value || (Array.isArray(value) && value.length === 0)) && !isUploading && (
+            <div
+              className="flex flex-col items-center justify-center w-full h-34 border-2 border-dashed border-secondary/30 rounded-lg cursor-pointer bg-transparent transition-colors mt-2"
+              onClick={handleLabelClick}
+              onDragOver={handleDragOver}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
+              {/* Upload icon */}
+              <div className="w-12 h-12 mb-2">
+                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="48" height="48" rx="24" fill="#E6F1FE" />
+                  <path d="M26.4106 16.2322V22.4447C26.4106 22.6722 26.2269 22.8559 26.0081 22.8559H22.0006C21.7731 22.8559 21.5894 22.6722 21.5894 22.4447V16.2322C21.5894 16.1009 21.4844 15.9872 21.3444 15.9872H20.4869C19.9444 15.9872 19.6556 15.3397 20.0231 14.9372L23.5406 11.0784C23.7944 10.8072 24.2231 10.8072 24.4681 11.0784L27.9769 14.9372C28.3444 15.3397 28.0556 15.9872 27.5131 15.9872H26.6556C26.5244 15.9872 26.4106 16.0922 26.4106 16.2322Z" fill="#006FEE" />
+                  <path d="M17.1838 15.3659H18.9814C18.9903 16.1351 19.5972 16.8622 20.4869 16.8622H20.7144V17.1159H17.1838C15.635 17.1159 14.375 18.3759 14.375 19.9246V28.9634C14.375 30.5121 15.635 31.7722 17.1838 31.7722H20.115C20.3338 31.7722 20.5438 31.8772 20.6663 32.0522C21.4363 33.1547 22.7138 33.8809 24.1663 33.8809C25.6188 33.8809 26.8963 33.1547 27.6663 32.0522C27.7888 31.8772 27.9988 31.7722 28.2175 31.7722H31.1488C32.6965 31.7722 33.9558 30.5138 33.9575 28.9665V19.9246C33.94 18.3759 32.6888 17.1159 31.1313 17.1159H27.2856V16.8622H27.5131C28.4028 16.8622 29.0098 16.1351 29.0186 15.3659H31.1313C33.6625 15.3659 35.6792 17.4124 35.7074 19.9049L35.7075 19.9148V32.5158C35.7075 35.0318 33.6627 37.0746 31.1475 37.0746H17.185C14.6698 37.0746 12.625 35.0318 12.625 32.5158V19.9246C12.625 17.4094 14.6685 15.3659 17.1838 15.3659Z" fill="#006FEE" />
+                  <path d="M18.785 19.3472H20.7144V20.2222H18.785C18.0783 20.2222 17.4988 20.8017 17.4988 21.5084V27.4672C17.4988 28.1739 18.0783 28.7534 18.785 28.7534H21.48C22.2239 28.7534 22.8117 29.2715 22.983 29.9329C23.1224 30.4624 23.5985 30.8447 24.1575 30.8447C24.7228 30.8447 25.1997 30.457 25.3304 29.9393L25.3313 29.9355C25.5017 29.2729 26.0902 28.7534 26.835 28.7534H29.53C30.2368 28.7534 30.8163 28.1739 30.8163 27.4672V21.5084C30.8163 20.7994 30.2432 20.2222 29.53 20.2222H27.2856V19.3472H29.53C30.7288 19.3472 31.6913 20.3184 31.6913 21.5084V27.4672C31.6913 28.6572 30.72 29.6284 29.53 29.6284H26.835C26.52 29.6284 26.2575 29.8472 26.1788 30.1534C25.9513 31.0547 25.1288 31.7197 24.1575 31.7197C23.1863 31.7197 22.3725 31.0547 22.1363 30.1534C22.0575 29.8472 21.795 29.6284 21.48 29.6284H18.785C17.595 29.6284 16.6238 28.6572 16.6238 27.4672V21.5084C16.6238 20.3184 17.595 19.3472 18.785 19.3472Z" fill="#006FEE" />
+                </svg>
 
+              </div>
+
+              {/* Norwegian text */}
+              <p className="mb-2 text-sm text-dark/80 text-center">
+                <span className="font-semibold">Drop filer her  eller </span >
+                <span className="text-primary">
+                  klikk for å laste opp
+                </span>
+              </p>
+
+              {/* File format instructions */}
+              <p className="text-xs  text-center px-4 text-secondary/70">
+                PNG, HEIC / HEIF og JPG (maks. 1024x1600px)
+              </p>
             </div>
-
-            {/* Norwegian text */}
-            <p className="mb-2 text-sm text-dark/80 text-center">
-              <span className="font-semibold">Drop filer her  eller </span >
-              <span className="text-primary">
-                klikk for å laste opp
-              </span>
-            </p>
-
-            {/* File format instructions */}
-            <p className="text-xs  text-center px-4 text-secondary/70">
-              PNG, HEIC / HEIF og JPG (maks. 1024x1600px)
-            </p>
-          </div>
+          )}
 
           {field.maxSize && (
             <p className="text-xs text-secondary text-secondary/70">
@@ -922,15 +1004,68 @@ const Form = ({
           )}
 
           {/* Selected files preview */}
-          {value && Array.isArray(value) && value.length > 0 && (
-            <div className="mt-2 space-y-1">
-              <p className="text-sm font-medium">Valgte filer:</p>
-              {value?.map((file: File, i: number) => (
-                <div key={i} className="flex items-center justify-between text-sm">
-                  <span className="text-secondary">• {file.name}</span>
-                  <span className="text-gray-500">({(file.size / 1024 / 1024).toFixed(2)}MB)</span>
+          {(isUploading || (value && Array.isArray(value) && value.length > 0)) && (
+            <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {/* Existing files */}
+              {Array.isArray(value) && value?.map((file: string | File, i: number) => {
+                const isString = typeof file === "string";
+                const fileName = isString ? file.split('/').pop() : file.name;
+                const fileUrl = isString
+                  ? (file.startsWith('http') ? file : `${process.env.NEXT_PUBLIC_IMAGE_URL || 'https://api.byggtipset.no/'}${file}`)
+                  : URL.createObjectURL(file);
+
+                // Check if it's an image
+                const isImage = isString
+                  ? file.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i)
+                  : file.type.startsWith('image/');
+
+                return (
+                  <div key={i} className="group relative rounded-lg border border-secondary/20 overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+                    {isImage ? (
+                      <div className="aspect-square w-full">
+                        <img
+                          src={fileUrl}
+                          alt={fileName}
+                          className="h-full w-full object-cover"
+                          onLoad={() => !isString && URL.revokeObjectURL(fileUrl)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="aspect-square w-full flex flex-col items-center justify-center p-2 bg-gray-50">
+                        <svg className="w-8 h-8 text-secondary/40 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-[10px] text-secondary/60 text-center truncate w-full px-1">{fileName}</span>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      aria-label="Remove file"
+                      className="absolute top-1 right-1 p-1 bg-white/90 hover:bg-red-50 text-secondary hover:text-danger rounded-full shadow-sm transition-colors cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveFile(formIndex, field.name, file, field);
+                      }}
+                    >
+                      <RxCross2 size={14} />
+                    </button>
+
+                    {/* Status overlay for local files (upload in progress/failed) */}
+                    {!isString && (
+                      <div className="absolute inset-x-0 bottom-0 bg-black/50 text-[8px] text-white text-center py-0.5">
+                        Local File
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {isUploading && (
+                <div className="rounded-lg border border-secondary/10 overflow-hidden bg-gray-50/50">
+                  <Skeleton className="aspect-square w-full" />
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
@@ -962,7 +1097,7 @@ const Form = ({
               type="text"
               placeholder="Adresseplassen 13"
               labelPlacement="outside"
-               isRequired={field.required}
+              isRequired={field.required}
               value={currentFormData?.values.streetName || ""}
               errorMessage={
                 isStreetInvalid ? currentFormData?.errors.streetName : undefined
@@ -1026,10 +1161,10 @@ const Form = ({
               labelPlacement="outside"
               maxLength={4}
               classNames={{
-                  innerWrapper: " !m-0 ",
-                  inputWrapper: "p-0",
-                  input: "p-4",
-                }}
+                innerWrapper: " !m-0 ",
+                inputWrapper: "p-0",
+                input: "p-4",
+              }}
               required={field.required}
               value={currentFormData?.values.postalCode || ""}
               errorMessage={
@@ -1174,7 +1309,7 @@ const Form = ({
             ? field.options
             : [];
         const currentValue = value;
-      const effectiveValue = currentValue || "";
+        const effectiveValue = currentValue || "";
         const selectedKeys = effectiveValue
           ? new Set([effectiveValue])
           : new Set();

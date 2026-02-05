@@ -107,7 +107,7 @@ export interface ArticlesListProps {
 
 export interface ArticleProps {
   slugValue?: string;
-  categorySlug?:string;
+  categorySlug?: string;
 }
 
 export interface SlugContentProps {
@@ -221,6 +221,7 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
   uniqueId: number;
+  userValues: any;
 }
 
 export interface CompanyPaginationProps {
